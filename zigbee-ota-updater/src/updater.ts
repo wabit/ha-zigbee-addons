@@ -42,9 +42,12 @@ export interface UpdateResult {
   error?: string;
 }
 
+type MqttHandler = (topic: string, payload: Buffer) => void;
+
 export class OtaUpdater {
   private client: mqtt.MqttClient | null = null;
   private baseTopic: string;
+  private activeHandler: MqttHandler | null = null;
 
   constructor(private config: Config) {
     this.baseTopic = config.zigbee2mqtt_topic;
@@ -66,31 +69,35 @@ export class OtaUpdater {
   }
 
   disconnect(): void {
+    this.clearHandler();
     this.client?.end();
     this.client = null;
     log.info("Disconnected from MQTT broker");
   }
 
-  /**
-   * Run a single check-and-update cycle.
-   *
-   * Phase 1: Check ALL devices for updates (just MQTT + Z2M index lookups,
-   *          gentle on the mesh). Builds a queue of devices that need updating.
-   * Phase 2: Work through the update queue sequentially with stabilization
-   *          delays between each.
-   *
-   * Returns a list of devices that were updated (or failed).
-   */
+  /** Set the active message handler, removing any previous one first */
+  private setHandler(handler: MqttHandler): void {
+    this.clearHandler();
+    this.activeHandler = handler;
+    this.requireClient().on("message", handler);
+  }
+
+  /** Remove the current message handler */
+  private clearHandler(): void {
+    if (this.activeHandler && this.client) {
+      this.client.removeListener("message", this.activeHandler);
+      this.activeHandler = null;
+    }
+  }
+
   async run(): Promise<UpdateResult[]> {
     await this.connect();
     const results: UpdateResult[] = [];
 
     try {
-      // Get device list first, then check for in-progress updates
       const devices = await this.getDevices();
       const targetDevices = this.filterDevices(devices);
 
-      // Check if any device is currently mid-OTA before starting
       await this.waitForInProgressUpdates(targetDevices);
 
       log.info(`Found ${targetDevices.length} device(s) to check for updates`);
@@ -106,7 +113,6 @@ export class OtaUpdater {
           updateQueue.push(device);
         }
 
-        // Gentle pacing between checks
         if (i < targetDevices.length - 1) {
           await this.sleep(this.config.delay_between_checks * 1000);
         }
@@ -132,7 +138,6 @@ export class OtaUpdater {
         const result = await this.updateDevice(device);
         results.push(result);
 
-        // Delay after an update to let the mesh stabilize (skip after last)
         if (i < updateQueue.length - 1) {
           log.info(
             `Waiting ${this.config.delay_between_updates}s to let the mesh stabilize...`
@@ -153,14 +158,6 @@ export class OtaUpdater {
     return results;
   }
 
-  /**
-   * Check if any device is currently mid-OTA by reading retained state
-   * messages from Z2M. When a device is updating, its state contains:
-   * {"update":{"state":"updating","progress":X,"remaining":Y}}
-   *
-   * These are retained MQTT messages, so we get them immediately on subscribe.
-   * If one is found, we wait for the update to complete before proceeding.
-   */
   private async waitForInProgressUpdates(
     devices: Z2MDevice[]
   ): Promise<void> {
@@ -169,7 +166,6 @@ export class OtaUpdater {
 
     log.info("Checking for in-progress OTA updates...");
 
-    // Subscribe to each device's state topic to read retained messages
     const deviceTopics = devices.map(
       (d) => `${this.baseTopic}/${d.friendly_name}`
     );
@@ -181,12 +177,11 @@ export class OtaUpdater {
 
     log.debug(`Subscribing to ${deviceTopics.length} device state topics...`);
 
-    // Phase 1: Collect retained state messages to find any updating device
+    // Phase 1: Read retained state messages to find any updating device
     const updatingDevice = await new Promise<string | null>((resolve) => {
       const received = new Set<string>();
       let found: string | null = null;
 
-      // Give retained messages time to arrive — use a longer window
       const scanTimeout = setTimeout(() => {
         log.debug(
           `Received state from ${received.size}/${deviceTopics.length} devices`
@@ -197,13 +192,13 @@ export class OtaUpdater {
 
       const cleanup = () => {
         clearTimeout(scanTimeout);
+        this.clearHandler();
         for (const t of deviceTopics) {
           client.unsubscribe(t);
         }
-        client.removeListener("message", handler);
       };
 
-      const handler = (t: string, payload: Buffer) => {
+      this.setHandler((t: string, payload: Buffer) => {
         if (!deviceTopics.includes(t)) return;
 
         received.add(t);
@@ -212,6 +207,10 @@ export class OtaUpdater {
           const data = JSON.parse(payload.toString()) as {
             update?: { state?: string; progress?: number };
           };
+
+          log.debug(
+            `State for "${t.replace(`${this.baseTopic}/`, "")}": update.state=${data.update?.state ?? "none"}`
+          );
 
           if (data.update?.state === "updating") {
             const deviceName = t.replace(`${this.baseTopic}/`, "");
@@ -224,16 +223,11 @@ export class OtaUpdater {
           // Not JSON, ignore
         }
 
-        // If we've heard from all devices, no need to wait longer
         if (received.size >= deviceTopics.length) {
           cleanup();
           resolve(found);
         }
-      };
-
-      // Remove any stale message listeners before adding ours
-      client.removeAllListeners("message");
-      client.on("message", handler);
+      });
 
       for (const t of deviceTopics) {
         client.subscribe(t);
@@ -261,13 +255,12 @@ export class OtaUpdater {
 
       const cleanup = () => {
         clearTimeout(timeout);
+        this.clearHandler();
         client.unsubscribe(deviceTopic);
         client.unsubscribe(responseTopic);
-        client.removeListener("message", handler);
       };
 
-      const handler = (t: string, payload: Buffer) => {
-        // Check if the device state changed away from "updating"
+      this.setHandler((t: string, payload: Buffer) => {
         if (t === deviceTopic) {
           try {
             const data = JSON.parse(payload.toString()) as {
@@ -285,7 +278,6 @@ export class OtaUpdater {
           }
         }
 
-        // Also check the update response topic
         if (t === responseTopic) {
           try {
             const response = JSON.parse(payload.toString()) as {
@@ -302,9 +294,8 @@ export class OtaUpdater {
             // ignore
           }
         }
-      };
+      });
 
-      client.on("message", handler);
       client.subscribe(deviceTopic);
       client.subscribe(responseTopic);
     });
@@ -322,21 +313,17 @@ export class OtaUpdater {
 
       const cleanup = () => {
         clearTimeout(timeout);
+        this.clearHandler();
         client.unsubscribe(topic);
-        client.removeListener("message", handler);
       };
 
-      const handler = (t: string, payload: Buffer) => {
+      this.setHandler((t: string, payload: Buffer) => {
         if (t === topic) {
           cleanup();
           const devices = JSON.parse(payload.toString()) as Z2MDevice[];
-          // Filter out the coordinator
           resolve(devices.filter((d) => d.type !== "Coordinator"));
         }
-      };
-
-      client.removeAllListeners("message");
-      client.on("message", handler);
+      });
 
       client.subscribe(topic, (err) => {
         if (err) {
@@ -355,7 +342,6 @@ export class OtaUpdater {
     const requested = new Set(this.config.devices);
     const filtered = devices.filter((d) => requested.has(d.friendly_name));
 
-    // Preserve the order from config
     filtered.sort(
       (a, b) =>
         this.config.devices.indexOf(a.friendly_name) -
@@ -382,27 +368,23 @@ export class OtaUpdater {
     return new Promise((resolve) => {
       const timeout = setTimeout(() => {
         log.warn(`Timeout checking OTA for ${device.friendly_name}, skipping`);
-        client.unsubscribe(responseTopic);
+        cleanup();
         resolve(false);
       }, 30_000);
 
-      client.subscribe(responseTopic, (err) => {
-        if (err) {
-          clearTimeout(timeout);
-          log.error(`Subscribe error: ${err.message}`);
-          resolve(false);
-        }
-      });
+      const cleanup = () => {
+        clearTimeout(timeout);
+        this.clearHandler();
+        client.unsubscribe(responseTopic);
+      };
 
-      const handler = (t: string, payload: Buffer) => {
+      this.setHandler((t: string, payload: Buffer) => {
         if (t !== responseTopic) return;
 
         const response = JSON.parse(payload.toString()) as OtaCheckResponse;
         if (response.data?.id !== device.friendly_name) return;
 
-        clearTimeout(timeout);
-        client.unsubscribe(responseTopic);
-        client.removeListener("message", handler);
+        cleanup();
 
         if (response.status === "error") {
           log.warn(
@@ -419,10 +401,15 @@ export class OtaUpdater {
           log.info(`${device.friendly_name} is up to date`);
           resolve(false);
         }
-      };
+      });
 
-      client.removeAllListeners("message");
-      client.on("message", handler);
+      client.subscribe(responseTopic, (err) => {
+        if (err) {
+          cleanup();
+          log.error(`Subscribe error: ${err.message}`);
+          resolve(false);
+        }
+      });
 
       client.publish(
         requestTopic,
@@ -452,13 +439,12 @@ export class OtaUpdater {
 
       const cleanup = () => {
         clearTimeout(timeout);
+        this.clearHandler();
         client.unsubscribe(responseTopic);
         client.unsubscribe(progressTopic);
-        client.removeListener("message", handler);
       };
 
-      const handler = (t: string, payload: Buffer) => {
-        // Handle progress updates
+      this.setHandler((t: string, payload: Buffer) => {
         if (t === progressTopic) {
           try {
             const data = JSON.parse(
@@ -473,7 +459,6 @@ export class OtaUpdater {
           return;
         }
 
-        // Handle completion
         if (t === responseTopic) {
           const response = JSON.parse(
             payload.toString()
@@ -498,12 +483,10 @@ export class OtaUpdater {
           log.success(`${device.friendly_name} updated successfully`);
           resolve({ device: device.friendly_name, success: true });
         }
-      };
+      });
 
-      client.removeAllListeners("message");
       client.subscribe(responseTopic);
       client.subscribe(progressTopic);
-      client.on("message", handler);
 
       client.publish(
         requestTopic,
