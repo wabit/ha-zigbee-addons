@@ -1,12 +1,16 @@
-# Home Assistant Zigbee Add-ons
+# Home Assistant Add-ons
 
-Custom Home Assistant add-on repository for Zigbee tools.
+Custom Home Assistant add-on repository for home automation tools.
 
 ## Add-ons
 
 ### [Zigbee OTA Updater](./zigbee-ota-updater)
 
-Sequentially updates Zigbee2MQTT devices over-the-air, one at a time, to avoid overwhelming your Zigbee mesh.
+Sequentially updates Zigbee2MQTT devices over-the-air, one at a time, to avoid overwhelming your Zigbee mesh. Runs on a schedule with HA notifications.
+
+### [Stale Entity Cleaner](./stale-entity-cleaner)
+
+Finds and removes Home Assistant entities that haven't updated in a configurable period. Warns you first, then cleans up after a grace period. Dry run mode enabled by default.
 
 ## Installation
 
@@ -15,4 +19,4 @@ Sequentially updates Zigbee2MQTT devices over-the-air, one at a time, to avoid o
 3. Paste: `https://github.com/wabit/ha-zigbee-addons`
 4. Click **Add**
 
-The add-ons will appear in the store under this repository.
+Both add-ons will appear in the store under this repository.

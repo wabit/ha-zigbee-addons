@@ -1,0 +1,40 @@
+name: "Stale Entity Cleaner"
+version: "1.0.0"
+slug: "stale_entity_cleaner"
+description: "Finds and removes Home Assistant entities that haven't updated in a configurable period."
+url: "https://github.com/wabit/ha-zigbee-addons"
+arch:
+  - amd64
+  - aarch64
+  - armv7
+  - armhf
+  - i386
+init: false
+startup: "application"
+boot: "auto"
+homeassistant_api: true
+map:
+  - share:rw
+
+options:
+  stale_warning_days: 3
+  stale_remove_days: 7
+  check_interval_hours: 24
+  enable_notifications: true
+  dry_run: true
+  exclude_domains: []
+  exclude_entities: []
+  exclude_patterns: []
+
+schema:
+  stale_warning_days: int
+  stale_remove_days: int
+  check_interval_hours: int
+  enable_notifications: bool
+  dry_run: bool
+  exclude_domains:
+    - str
+  exclude_entities:
+    - str
+  exclude_patterns:
+    - str
