@@ -73,6 +73,12 @@ export class OtaUpdater {
 
   /**
    * Run a single check-and-update cycle.
+   *
+   * Phase 1: Check ALL devices for updates (just MQTT + Z2M index lookups,
+   *          gentle on the mesh). Builds a queue of devices that need updating.
+   * Phase 2: Work through the update queue sequentially with stabilization
+   *          delays between each.
+   *
    * Returns a list of devices that were updated (or failed).
    */
   async run(): Promise<UpdateResult[]> {
@@ -89,40 +95,57 @@ export class OtaUpdater {
 
       log.info(`Found ${targetDevices.length} device(s) to check for updates`);
 
-      // Single pass: check each device and update immediately if needed
+      // Phase 1: Check all devices and build the update queue
+      const updateQueue: Z2MDevice[] = [];
+
       for (let i = 0; i < targetDevices.length; i++) {
         const device = targetDevices[i];
         const hasUpdate = await this.checkForUpdate(device);
 
         if (hasUpdate) {
-          log.info(`Updating ${device.friendly_name}...`);
-          const result = await this.updateDevice(device);
-          results.push(result);
+          updateQueue.push(device);
+        }
 
-          // Delay after an update to let the mesh stabilize
-          if (i < targetDevices.length - 1) {
-            log.info(
-              `Waiting ${this.config.delay_between_updates}s to let the mesh stabilize...`
-            );
-            await this.sleep(this.config.delay_between_updates * 1000);
-          }
-        } else {
-          // Shorter pause between checks when no update was needed
-          if (i < targetDevices.length - 1) {
-            await this.sleep(this.config.delay_between_checks * 1000);
-          }
+        // Gentle pacing between checks
+        if (i < targetDevices.length - 1) {
+          await this.sleep(this.config.delay_between_checks * 1000);
         }
       }
 
-      if (results.length === 0) {
+      if (updateQueue.length === 0) {
         log.success("All devices are up to date!");
-      } else {
-        const succeeded = results.filter((r) => r.success).length;
-        const failed = results.filter((r) => !r.success).length;
-        log.success(
-          `\nCycle complete! ${succeeded} updated, ${failed} failed out of ${results.length} device(s).`
-        );
+        return results;
       }
+
+      log.info(`\n${updateQueue.length} device(s) queued for update:`);
+      for (const d of updateQueue) {
+        log.info(`  - ${d.friendly_name}`);
+      }
+
+      // Phase 2: Update sequentially from the queue
+      for (let i = 0; i < updateQueue.length; i++) {
+        const device = updateQueue[i];
+        log.info(
+          `\nUpdating ${i + 1}/${updateQueue.length}: ${device.friendly_name}...`
+        );
+
+        const result = await this.updateDevice(device);
+        results.push(result);
+
+        // Delay after an update to let the mesh stabilize (skip after last)
+        if (i < updateQueue.length - 1) {
+          log.info(
+            `Waiting ${this.config.delay_between_updates}s to let the mesh stabilize...`
+          );
+          await this.sleep(this.config.delay_between_updates * 1000);
+        }
+      }
+
+      const succeeded = results.filter((r) => r.success).length;
+      const failed = results.filter((r) => !r.success).length;
+      log.success(
+        `\nCycle complete! ${succeeded} updated, ${failed} failed out of ${results.length} device(s).`
+      );
     } finally {
       this.disconnect();
     }
