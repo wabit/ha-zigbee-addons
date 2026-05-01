@@ -1,0 +1,7 @@
+#!/usr/bin/execlineb -S1
+# ==============================================================================
+# Take down the s6 supervision tree when the updater finishes
+# This ensures the add-on stops cleanly after all updates are done
+# ==============================================================================
+
+/run/s6/basedir/bin/halt
