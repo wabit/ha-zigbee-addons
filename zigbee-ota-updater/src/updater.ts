@@ -166,16 +166,21 @@ export class OtaUpdater {
 
     log.info("Checking for in-progress OTA updates...");
 
-    const deviceTopics = devices.map(
-      (d) => `${this.baseTopic}/${d.friendly_name}`
-    );
+    // Build a set of device names for fast lookup
+    const deviceNames = new Set(devices.map((d) => d.friendly_name));
 
-    if (deviceTopics.length === 0) {
+    if (deviceNames.size === 0) {
       log.info("No devices to check");
       return;
     }
 
-    log.debug(`Subscribing to ${deviceTopics.length} device state topics...`);
+    // Use a single wildcard subscription — much more reliable than 62
+    // individual subscribes. The broker sends all retained messages at once.
+    const wildcardTopic = `${this.baseTopic}/+`;
+
+    log.debug(
+      `Subscribing to ${wildcardTopic} to check ${deviceNames.size} devices...`
+    );
 
     // Phase 1: Read retained state messages to find any updating device
     const updatingDevice = await new Promise<string | null>((resolve) => {
@@ -184,7 +189,7 @@ export class OtaUpdater {
 
       const scanTimeout = setTimeout(() => {
         log.debug(
-          `Received state from ${received.size}/${deviceTopics.length} devices`
+          `Received state from ${received.size}/${deviceNames.size} devices`
         );
         cleanup();
         resolve(found);
@@ -193,15 +198,18 @@ export class OtaUpdater {
       const cleanup = () => {
         clearTimeout(scanTimeout);
         this.clearHandler();
-        for (const t of deviceTopics) {
-          client.unsubscribe(t);
-        }
+        client.unsubscribe(wildcardTopic);
       };
 
       this.setHandler((t: string, payload: Buffer) => {
-        if (!deviceTopics.includes(t)) return;
+        // Only process device state topics, skip bridge subtopics
+        if (!t.startsWith(`${this.baseTopic}/`)) return;
+        if (t.startsWith(`${this.baseTopic}/bridge`)) return;
 
-        received.add(t);
+        const deviceName = t.slice(this.baseTopic.length + 1);
+        if (!deviceNames.has(deviceName)) return;
+
+        received.add(deviceName);
 
         try {
           const data = JSON.parse(payload.toString()) as {
@@ -209,11 +217,10 @@ export class OtaUpdater {
           };
 
           log.debug(
-            `State for "${t.replace(`${this.baseTopic}/`, "")}": update.state=${data.update?.state ?? "none"}`
+            `State for "${deviceName}": update.state=${data.update?.state ?? "none"}`
           );
 
           if (data.update?.state === "updating") {
-            const deviceName = t.replace(`${this.baseTopic}/`, "");
             found = deviceName;
             log.warn(
               `OTA update in progress for "${deviceName}" (${data.update.progress ?? 0}%)`
@@ -223,15 +230,13 @@ export class OtaUpdater {
           // Not JSON, ignore
         }
 
-        if (received.size >= deviceTopics.length) {
+        if (received.size >= deviceNames.size) {
           cleanup();
           resolve(found);
         }
       });
 
-      for (const t of deviceTopics) {
-        client.subscribe(t);
-      }
+      client.subscribe(wildcardTopic);
     });
 
     if (!updatingDevice) {
