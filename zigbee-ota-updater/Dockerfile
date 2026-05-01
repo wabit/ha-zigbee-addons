@@ -1,12 +1,19 @@
-ARG BUILD_FROM=ghcr.io/hassio-addons/base-nodejs:0.2.4
+ARG BUILD_FROM
 FROM ${BUILD_FROM}
 
+# Install Node.js and npm
+RUN apk add --no-cache nodejs npm
+
 # Copy package files and install dependencies
-COPY package.json tsconfig.json /app/
+COPY package.json package-lock.json /app/
 WORKDIR /app
-RUN npm install --omit=dev && npm install -g tsx
+RUN npm ci --omit=dev
+
+# Install tsx globally for running TypeScript directly
+RUN npm install -g tsx
 
 # Copy source
+COPY tsconfig.json /app/
 COPY src/ /app/src/
 
 # Copy run script
