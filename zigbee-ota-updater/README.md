@@ -8,7 +8,7 @@ Sequentially updates Zigbee2MQTT devices over-the-air, one at a time, to avoid o
 
 2. Click the **⋮** menu (top right) → **Repositories**
 
-3. Paste: `https://github.com/wabit/ha-zigbee-addons`
+3. Paste: `https://github.com/wabit/wabits-ha-addons`
 
 4. Click **Add**, then find **Zigbee OTA Updater** in the store and click **Install**
 

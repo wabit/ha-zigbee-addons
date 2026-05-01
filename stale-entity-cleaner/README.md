@@ -6,7 +6,7 @@ Finds and removes Home Assistant entities that haven't updated in a configurable
 
 1. In Home Assistant, go to **Settings → Add-ons → Add-on Store**
 2. Click **⋮** (top right) → **Repositories**
-3. Paste: `https://github.com/wabit/ha-zigbee-addons`
+3. Paste: `https://github.com/wabit/wabits-ha-addons`
 4. Click **Add**, then find **Stale Entity Cleaner** and click **Install**
 
 ## Configuration

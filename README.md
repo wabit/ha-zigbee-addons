@@ -1,4 +1,4 @@
-# Home Assistant Add-ons
+# Wabit's Home Assistant Add-ons
 
 Custom Home Assistant add-on repository for home automation tools.
 
@@ -16,7 +16,7 @@ Finds and removes Home Assistant entities that haven't updated in a configurable
 
 1. In Home Assistant, go to **Settings → Add-ons → Add-on Store**
 2. Click the **⋮** menu (top right) → **Repositories**
-3. Paste: `https://github.com/wabit/ha-zigbee-addons`
+3. Paste: `https://github.com/wabit/wabits-ha-addons`
 4. Click **Add**
 
 Both add-ons will appear in the store under this repository.
