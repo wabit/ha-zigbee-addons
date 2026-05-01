@@ -16,5 +16,8 @@ RUN npm install -g tsx
 COPY tsconfig.json /app/
 COPY src/ /app/src/
 
-# Copy s6-overlay service definitions
-COPY rootfs/ /
+# Copy run script
+COPY run.sh /
+RUN chmod a+x /run.sh
+
+CMD [ "/run.sh" ]
