@@ -36,6 +36,12 @@ interface OtaProgressPayload {
   remaining: number;
 }
 
+export interface UpdateResult {
+  device: string;
+  success: boolean;
+  error?: string;
+}
+
 export class OtaUpdater {
   private client: mqtt.MqttClient | null = null;
   private baseTopic: string;
@@ -61,11 +67,17 @@ export class OtaUpdater {
 
   disconnect(): void {
     this.client?.end();
+    this.client = null;
     log.info("Disconnected from MQTT broker");
   }
 
-  async run(): Promise<void> {
+  /**
+   * Run a single check-and-update cycle.
+   * Returns a list of devices that were updated (or failed).
+   */
+  async run(): Promise<UpdateResult[]> {
     await this.connect();
+    const results: UpdateResult[] = [];
 
     try {
       const devices = await this.getDevices();
@@ -81,11 +93,13 @@ export class OtaUpdater {
         if (hasUpdate) {
           devicesWithUpdates.push(device);
         }
+        // Pause between checks to avoid flooding the mesh
+        await this.sleep(this.config.delay_between_checks * 1000);
       }
 
       if (devicesWithUpdates.length === 0) {
         log.success("All devices are up to date!");
-        return;
+        return results;
       }
 
       log.info(
@@ -102,7 +116,8 @@ export class OtaUpdater {
           `\nUpdating device ${i + 1}/${devicesWithUpdates.length}: ${device.friendly_name}`
         );
 
-        await this.updateDevice(device);
+        const result = await this.updateDevice(device);
+        results.push(result);
 
         // Delay between updates (skip after the last one)
         if (i < devicesWithUpdates.length - 1) {
@@ -114,12 +129,16 @@ export class OtaUpdater {
         }
       }
 
+      const succeeded = results.filter((r) => r.success).length;
+      const failed = results.filter((r) => !r.success).length;
       log.success(
-        `\nAll done! Updated ${devicesWithUpdates.length} device(s).`
+        `\nCycle complete! ${succeeded} updated, ${failed} failed out of ${results.length} device(s).`
       );
     } finally {
       this.disconnect();
     }
+
+    return results;
   }
 
   private async getDevices(): Promise<Z2MDevice[]> {
@@ -234,20 +253,23 @@ export class OtaUpdater {
     });
   }
 
-  private async updateDevice(device: Z2MDevice): Promise<void> {
+  private async updateDevice(device: Z2MDevice): Promise<UpdateResult> {
     const client = this.requireClient();
     const requestTopic = `${this.baseTopic}/bridge/request/device/ota_update/update`;
     const responseTopic = `${this.baseTopic}/bridge/response/device/ota_update/update`;
     const progressTopic = `${this.baseTopic}/${device.friendly_name}`;
 
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       const timeout = setTimeout(() => {
         cleanup();
-        reject(
-          new Error(
-            `Timeout updating ${device.friendly_name} after ${this.config.update_timeout}s`
-          )
+        log.error(
+          `Timeout updating ${device.friendly_name} after ${this.config.update_timeout}s`
         );
+        resolve({
+          device: device.friendly_name,
+          success: false,
+          error: `Timeout after ${this.config.update_timeout}s`,
+        });
       }, this.config.update_timeout * 1000);
 
       const cleanup = () => {
@@ -261,7 +283,9 @@ export class OtaUpdater {
         // Handle progress updates
         if (t === progressTopic) {
           try {
-            const data = JSON.parse(payload.toString()) as Partial<OtaProgressPayload>;
+            const data = JSON.parse(
+              payload.toString()
+            ) as Partial<OtaProgressPayload>;
             if (data.progress !== undefined) {
               log.progress(device.friendly_name, data.progress);
             }
@@ -285,12 +309,16 @@ export class OtaUpdater {
             log.error(
               `Update failed for ${device.friendly_name}: ${response.error}`
             );
-            resolve(); // Don't reject — continue with next device
+            resolve({
+              device: device.friendly_name,
+              success: false,
+              error: response.error,
+            });
             return;
           }
 
           log.success(`${device.friendly_name} updated successfully`);
-          resolve();
+          resolve({ device: device.friendly_name, success: true });
         }
       };
 

@@ -1,5 +1,5 @@
 name: "Zigbee OTA Updater"
-version: "1.0.3"
+version: "1.1.0"
 slug: "zigbee_ota_updater"
 description: "Sequentially updates Zigbee2MQTT devices over OTA, one at a time, to avoid overwhelming your mesh."
 url: "https://github.com/wabit/ha-zigbee-addons"
@@ -11,8 +11,8 @@ arch:
   - i386
 init: false
 startup: "application"
-boot: "manual"
-homeassistant_api: false
+boot: "auto"
+homeassistant_api: true
 map:
   - share:rw
 
@@ -23,7 +23,10 @@ options:
   mqtt_password: ""
   zigbee2mqtt_topic: "zigbee2mqtt"
   delay_between_updates: 300
+  delay_between_checks: 10
   update_timeout: 3600
+  check_interval_hours: 24
+  enable_notifications: true
   devices: []
 
 schema:
@@ -33,6 +36,9 @@ schema:
   mqtt_password: password?
   zigbee2mqtt_topic: str
   delay_between_updates: int
+  delay_between_checks: int
   update_timeout: int
+  check_interval_hours: int
+  enable_notifications: bool
   devices:
     - str

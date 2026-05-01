@@ -10,7 +10,10 @@ export interface Config {
   };
   zigbee2mqtt_topic: string;
   delay_between_updates: number;
+  delay_between_checks: number;
   update_timeout: number;
+  check_interval_hours: number;
+  enable_notifications: boolean;
   devices: string[];
 }
 
@@ -36,7 +39,10 @@ export function loadConfig(path: string): Config {
     },
     zigbee2mqtt_topic: String(parsed.zigbee2mqtt_topic ?? "zigbee2mqtt"),
     delay_between_updates: Number(parsed.delay_between_updates ?? 300),
+    delay_between_checks: Number(parsed.delay_between_checks ?? 10),
     update_timeout: Number(parsed.update_timeout ?? 3600),
+    check_interval_hours: Number(parsed.check_interval_hours ?? 24),
+    enable_notifications: parsed.enable_notifications !== false,
     devices: Array.isArray(parsed.devices) ? parsed.devices.map(String) : [],
   };
 }
