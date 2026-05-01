@@ -1,0 +1,20 @@
+{
+  "name": "zigbee-ota-updater",
+  "version": "1.0.0",
+  "description": "Sequential OTA updater for Zigbee2MQTT devices",
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "build": "tsc",
+    "start:built": "node dist/index.js"
+  },
+  "dependencies": {
+    "mqtt": "^5.10.0",
+    "yaml": "^2.6.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0"
+  }
+}

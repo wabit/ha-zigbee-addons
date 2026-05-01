@@ -1,0 +1,41 @@
+name: "Zigbee OTA Updater"
+version: "1.0.0"
+slug: "zigbee_ota_updater"
+description: "Sequentially updates Zigbee2MQTT devices over OTA, one at a time, to avoid overwhelming your mesh."
+url: "https://github.com/wabit/ha-zigbee-addons"
+arch:
+  - amd64
+  - aarch64
+  - armv7
+  - armhf
+  - i386
+startup: "application"
+boot: "manual"
+homeassistant_api: false
+map:
+  - share:rw
+services:
+  - mqtt:need
+
+options:
+  mqtt_host: "core-mosquitto"
+  mqtt_port: 1883
+  mqtt_username: ""
+  mqtt_password: ""
+  zigbee2mqtt_topic: "zigbee2mqtt"
+  delay_between_updates: 300
+  update_timeout: 3600
+  devices: []
+
+schema:
+  mqtt_host: str
+  mqtt_port: port
+  mqtt_username: str?
+  mqtt_password: password?
+  zigbee2mqtt_topic: str
+  delay_between_updates: int
+  update_timeout: int
+  devices:
+    - str
+
+image: "ghcr.io/wabit/zigbee-ota-updater-{arch}"
