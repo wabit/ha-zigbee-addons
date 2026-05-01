@@ -33,6 +33,7 @@ const config = {
   update_timeout: opts.update_timeout || 3600,
   check_interval_hours: opts.check_interval_hours || 24,
   enable_notifications: opts.enable_notifications !== false,
+  debug: opts.debug === true,
   devices: opts.devices || []
 };
 require('fs').writeFileSync('${CONFIG_PATH}', JSON.stringify(config, null, 2));
@@ -44,6 +45,7 @@ console.log('[INFO]   Delay between checks: ' + config.delay_between_checks + 's
 console.log('[INFO]   Update timeout: ' + config.update_timeout + 's');
 console.log('[INFO]   Check interval: ' + config.check_interval_hours + 'h');
 console.log('[INFO]   Notifications: ' + (config.enable_notifications ? 'enabled' : 'disabled'));
+console.log('[INFO]   Debug: ' + (config.debug ? 'enabled' : 'disabled'));
 console.log('[INFO]   Devices: ' + (config.devices.length ? config.devices.join(', ') : 'ALL (auto-discover)'));
 "
 

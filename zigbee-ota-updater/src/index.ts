@@ -11,6 +11,8 @@ log.info("==============================\n");
 
 const config = loadConfig(resolve(configPath));
 
+log.setDebug(config.debug);
+
 log.info(`MQTT broker: ${config.mqtt.host}:${config.mqtt.port}`);
 log.info(`Z2M topic: ${config.zigbee2mqtt_topic}`);
 log.info(`Delay between updates: ${config.delay_between_updates}s`);

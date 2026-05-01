@@ -1,5 +1,5 @@
 name: "Zigbee OTA Updater"
-version: "1.2.2"
+version: "1.2.3"
 slug: "zigbee_ota_updater"
 description: "Sequentially updates Zigbee2MQTT devices over OTA, one at a time, to avoid overwhelming your mesh."
 url: "https://github.com/wabit/wabits-ha-addons"
@@ -27,6 +27,7 @@ options:
   update_timeout: 3600
   check_interval_hours: 24
   enable_notifications: true
+  debug: false
   devices: []
 
 schema:
@@ -40,5 +41,6 @@ schema:
   update_timeout: int
   check_interval_hours: int
   enable_notifications: bool
+  debug: bool
   devices:
     - str

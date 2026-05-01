@@ -14,6 +14,7 @@ export interface Config {
   update_timeout: number;
   check_interval_hours: number;
   enable_notifications: boolean;
+  debug: boolean;
   devices: string[];
 }
 
@@ -43,6 +44,7 @@ export function loadConfig(path: string): Config {
     update_timeout: Number(parsed.update_timeout ?? 3600),
     check_interval_hours: Number(parsed.check_interval_hours ?? 24),
     enable_notifications: parsed.enable_notifications !== false,
+    debug: parsed.debug === true,
     devices: Array.isArray(parsed.devices) ? parsed.devices.map(String) : [],
   };
 }

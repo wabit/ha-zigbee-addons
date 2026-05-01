@@ -1,7 +1,19 @@
 const timestamp = () => new Date().toISOString();
 
+let debugEnabled = false;
+
+export function setDebug(enabled: boolean) {
+  debugEnabled = enabled;
+}
+
 export function info(msg: string) {
   console.log(`[${timestamp()}] ℹ️  ${msg}`);
+}
+
+export function debug(msg: string) {
+  if (debugEnabled) {
+    console.log(`[${timestamp()}] 🔍 ${msg}`);
+  }
 }
 
 export function success(msg: string) {

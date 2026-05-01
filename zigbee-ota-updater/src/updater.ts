@@ -179,16 +179,21 @@ export class OtaUpdater {
       return;
     }
 
+    log.debug(`Subscribing to ${deviceTopics.length} device state topics...`);
+
     // Phase 1: Collect retained state messages to find any updating device
     const updatingDevice = await new Promise<string | null>((resolve) => {
       const received = new Set<string>();
       let found: string | null = null;
 
-      // Give retained messages 3 seconds to arrive
+      // Give retained messages time to arrive — use a longer window
       const scanTimeout = setTimeout(() => {
+        log.debug(
+          `Received state from ${received.size}/${deviceTopics.length} devices`
+        );
         cleanup();
         resolve(found);
-      }, 3_000);
+      }, 5_000);
 
       const cleanup = () => {
         clearTimeout(scanTimeout);
@@ -226,7 +231,10 @@ export class OtaUpdater {
         }
       };
 
+      // Remove any stale message listeners before adding ours
+      client.removeAllListeners("message");
       client.on("message", handler);
+
       for (const t of deviceTopics) {
         client.subscribe(t);
       }
@@ -312,20 +320,28 @@ export class OtaUpdater {
         15_000
       );
 
-      client.subscribe(topic, (err) => {
-        if (err) {
-          clearTimeout(timeout);
-          reject(err);
-        }
-      });
+      const cleanup = () => {
+        clearTimeout(timeout);
+        client.unsubscribe(topic);
+        client.removeListener("message", handler);
+      };
 
-      client.on("message", (t, payload) => {
+      const handler = (t: string, payload: Buffer) => {
         if (t === topic) {
-          clearTimeout(timeout);
-          client.unsubscribe(topic);
+          cleanup();
           const devices = JSON.parse(payload.toString()) as Z2MDevice[];
           // Filter out the coordinator
           resolve(devices.filter((d) => d.type !== "Coordinator"));
+        }
+      };
+
+      client.removeAllListeners("message");
+      client.on("message", handler);
+
+      client.subscribe(topic, (err) => {
+        if (err) {
+          cleanup();
+          reject(err);
         }
       });
     });
@@ -405,6 +421,7 @@ export class OtaUpdater {
         }
       };
 
+      client.removeAllListeners("message");
       client.on("message", handler);
 
       client.publish(
@@ -483,6 +500,7 @@ export class OtaUpdater {
         }
       };
 
+      client.removeAllListeners("message");
       client.subscribe(responseTopic);
       client.subscribe(progressTopic);
       client.on("message", handler);
