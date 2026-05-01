@@ -80,6 +80,9 @@ export class OtaUpdater {
     const results: UpdateResult[] = [];
 
     try {
+      // Check if an OTA update is already in progress before starting
+      await this.waitForInProgressUpdates();
+
       const devices = await this.getDevices();
       const targetDevices = this.filterDevices(devices);
 
@@ -124,6 +127,95 @@ export class OtaUpdater {
     }
 
     return results;
+  }
+
+  /**
+   * Check if any device is currently mid-OTA by subscribing to all device
+   * topics and looking for progress messages. If one is found, wait for
+   * the update response before proceeding.
+   */
+  private async waitForInProgressUpdates(): Promise<void> {
+    const client = this.requireClient();
+    const progressWildcard = `${this.baseTopic}/+`;
+    const responseTopic = `${this.baseTopic}/bridge/response/device/ota_update/update`;
+
+    log.info("Checking for in-progress OTA updates...");
+
+    return new Promise((resolve) => {
+      let inProgressDevice: string | null = null;
+
+      // Listen for 5 seconds to see if any device is sending OTA progress
+      const scanTimeout = setTimeout(() => {
+        cleanup();
+        if (!inProgressDevice) {
+          log.info("No in-progress OTA updates detected");
+        }
+        resolve();
+      }, 5_000);
+
+      const cleanup = () => {
+        clearTimeout(scanTimeout);
+        clearTimeout(waitTimeout);
+        client.unsubscribe(progressWildcard);
+        client.unsubscribe(responseTopic);
+        client.removeListener("message", handler);
+      };
+
+      // If we find one in progress, wait up to the update timeout for it
+      let waitTimeout: ReturnType<typeof setTimeout>;
+
+      const handler = (t: string, payload: Buffer) => {
+        // Skip bridge topics
+        if (t.startsWith(`${this.baseTopic}/bridge/`)) return;
+
+        // Check for OTA progress in device messages
+        if (t.startsWith(`${this.baseTopic}/`) && !inProgressDevice) {
+          try {
+            const data = JSON.parse(payload.toString()) as Record<string, unknown>;
+            if (typeof data.progress === "number" && data.progress > 0 && data.progress < 100) {
+              const deviceName = t.replace(`${this.baseTopic}/`, "");
+              inProgressDevice = deviceName;
+              clearTimeout(scanTimeout);
+
+              log.warn(
+                `OTA update already in progress for "${deviceName}" (${data.progress}%). Waiting for it to finish...`
+              );
+
+              // Now wait for the update to complete
+              waitTimeout = setTimeout(() => {
+                log.warn(
+                  `Timed out waiting for in-progress update on "${deviceName}". Proceeding anyway.`
+                );
+                cleanup();
+                resolve();
+              }, this.config.update_timeout * 1000);
+            }
+          } catch {
+            // Not JSON, ignore
+          }
+        }
+
+        // If we're waiting for an in-progress update, watch for completion
+        if (inProgressDevice && t === responseTopic) {
+          try {
+            const response = JSON.parse(payload.toString()) as { data?: { id?: string }; status?: string };
+            if (response.data?.id === inProgressDevice) {
+              log.success(
+                `In-progress update for "${inProgressDevice}" completed. Proceeding with cycle.`
+              );
+              cleanup();
+              resolve();
+            }
+          } catch {
+            // Not JSON, ignore
+          }
+        }
+      };
+
+      client.subscribe(progressWildcard);
+      client.subscribe(responseTopic);
+      client.on("message", handler);
+    });
   }
 
   private async getDevices(): Promise<Z2MDevice[]> {

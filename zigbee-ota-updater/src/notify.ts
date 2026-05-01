@@ -1,13 +1,12 @@
+import WebSocket from "ws";
 import * as log from "./logger.js";
 
-const SUPERVISOR_API = "http://supervisor/core/api";
-
 /**
- * Send a persistent notification to Home Assistant.
+ * Send a persistent notification to Home Assistant via the WebSocket API.
  *
- * When running as an add-on with `homeassistant_api: true`, the
- * SUPERVISOR_TOKEN env var is injected automatically by the Supervisor.
- * This gives us access to the HA REST API without any extra config.
+ * Uses the same approach as the stale entity cleaner — connects to the
+ * Supervisor's WebSocket proxy, authenticates with SUPERVISOR_TOKEN,
+ * sends the notification, and disconnects.
  */
 export async function notifyHA(
   title: string,
@@ -23,33 +22,76 @@ export async function notifyHA(
     return;
   }
 
-  try {
-    const response = await fetch(
-      `${SUPERVISOR_API}/services/persistent_notification/create`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          title,
-          message,
-          notification_id: `zigbee_ota_${Date.now()}`,
-        }),
-      }
-    );
+  const url = "ws://supervisor/core/websocket";
 
-    if (!response.ok) {
-      log.warn(
-        `HA notification failed (${response.status}): ${await response.text()}`
-      );
-    } else {
-      log.info(`Notification sent to Home Assistant: ${title}`);
-    }
-  } catch (err) {
-    log.warn(
-      `Failed to send HA notification: ${err instanceof Error ? err.message : String(err)}`
-    );
-  }
+  return new Promise<void>((resolve) => {
+    const ws = new WebSocket(url);
+    let authenticated = false;
+
+    const timeout = setTimeout(() => {
+      log.warn("Notification timed out");
+      ws.close();
+      resolve();
+    }, 15_000);
+
+    ws.on("message", (data) => {
+      const msg = JSON.parse(data.toString());
+
+      if (msg.type === "auth_required") {
+        ws.send(JSON.stringify({ type: "auth", access_token: token }));
+        return;
+      }
+
+      if (msg.type === "auth_ok") {
+        authenticated = true;
+        ws.send(
+          JSON.stringify({
+            id: 1,
+            type: "call_service",
+            domain: "persistent_notification",
+            service: "create",
+            service_data: {
+              title,
+              message,
+              notification_id: `zigbee_ota_${Date.now()}`,
+            },
+          })
+        );
+        return;
+      }
+
+      if (msg.type === "auth_invalid") {
+        log.warn(`HA auth failed: ${msg.message}`);
+        clearTimeout(timeout);
+        ws.close();
+        resolve();
+        return;
+      }
+
+      // Response to our service call
+      if (authenticated && msg.id === 1) {
+        clearTimeout(timeout);
+        if (msg.success) {
+          log.info(`Notification sent to Home Assistant: ${title}`);
+        } else {
+          log.warn(
+            `HA notification failed: ${msg.error?.message ?? "Unknown error"}`
+          );
+        }
+        ws.close();
+        resolve();
+      }
+    });
+
+    ws.on("error", (err) => {
+      clearTimeout(timeout);
+      log.warn(`WebSocket error sending notification: ${err.message}`);
+      resolve();
+    });
+
+    ws.on("close", () => {
+      clearTimeout(timeout);
+      resolve();
+    });
+  });
 }

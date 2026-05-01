@@ -10,10 +10,12 @@
   },
   "dependencies": {
     "mqtt": "^5.10.0",
+    "ws": "^8.20.0",
     "yaml": "^2.6.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
+    "@types/ws": "^8.18.1",
     "tsx": "^4.19.0",
     "typescript": "^5.6.0"
   }
