@@ -1,5 +1,5 @@
 name: "Stale Entity Cleaner"
-version: "1.0.0"
+version: "1.0.1"
 slug: "stale_entity_cleaner"
 description: "Finds and removes Home Assistant entities that haven't updated in a configurable period."
 url: "https://github.com/wabit/ha-zigbee-addons"

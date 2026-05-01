@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/with-contenv sh
 # ==============================================================================
 # Zigbee OTA Updater - Home Assistant Add-on
 # Reads config from HA add-on options and runs the updater
