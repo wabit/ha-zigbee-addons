@@ -80,11 +80,12 @@ export class OtaUpdater {
     const results: UpdateResult[] = [];
 
     try {
-      // Check if an OTA update is already in progress before starting
-      await this.waitForInProgressUpdates();
-
+      // Get device list first, then check for in-progress updates
       const devices = await this.getDevices();
       const targetDevices = this.filterDevices(devices);
+
+      // Check if any device is currently mid-OTA before starting
+      await this.waitForInProgressUpdates(targetDevices);
 
       log.info(`Found ${targetDevices.length} device(s) to check for updates`);
 
@@ -130,91 +131,151 @@ export class OtaUpdater {
   }
 
   /**
-   * Check if any device is currently mid-OTA by subscribing to all device
-   * topics and looking for progress messages. If one is found, wait for
-   * the update response before proceeding.
+   * Check if any device is currently mid-OTA by reading retained state
+   * messages from Z2M. When a device is updating, its state contains:
+   * {"update":{"state":"updating","progress":X,"remaining":Y}}
+   *
+   * These are retained MQTT messages, so we get them immediately on subscribe.
+   * If one is found, we wait for the update to complete before proceeding.
    */
-  private async waitForInProgressUpdates(): Promise<void> {
+  private async waitForInProgressUpdates(
+    devices: Z2MDevice[]
+  ): Promise<void> {
     const client = this.requireClient();
-    const progressWildcard = `${this.baseTopic}/+`;
     const responseTopic = `${this.baseTopic}/bridge/response/device/ota_update/update`;
 
     log.info("Checking for in-progress OTA updates...");
 
-    return new Promise((resolve) => {
-      let inProgressDevice: string | null = null;
+    // Subscribe to each device's state topic to read retained messages
+    const deviceTopics = devices.map(
+      (d) => `${this.baseTopic}/${d.friendly_name}`
+    );
 
-      // Listen for 5 seconds to see if any device is sending OTA progress
+    if (deviceTopics.length === 0) {
+      log.info("No devices to check");
+      return;
+    }
+
+    // Phase 1: Collect retained state messages to find any updating device
+    const updatingDevice = await new Promise<string | null>((resolve) => {
+      const received = new Set<string>();
+      let found: string | null = null;
+
+      // Give retained messages 3 seconds to arrive
       const scanTimeout = setTimeout(() => {
         cleanup();
-        if (!inProgressDevice) {
-          log.info("No in-progress OTA updates detected");
-        }
-        resolve();
-      }, 5_000);
+        resolve(found);
+      }, 3_000);
 
       const cleanup = () => {
         clearTimeout(scanTimeout);
-        clearTimeout(waitTimeout);
-        client.unsubscribe(progressWildcard);
+        for (const t of deviceTopics) {
+          client.unsubscribe(t);
+        }
+        client.removeListener("message", handler);
+      };
+
+      const handler = (t: string, payload: Buffer) => {
+        if (!deviceTopics.includes(t)) return;
+
+        received.add(t);
+
+        try {
+          const data = JSON.parse(payload.toString()) as {
+            update?: { state?: string; progress?: number };
+          };
+
+          if (data.update?.state === "updating") {
+            const deviceName = t.replace(`${this.baseTopic}/`, "");
+            found = deviceName;
+            log.warn(
+              `OTA update in progress for "${deviceName}" (${data.update.progress ?? 0}%)`
+            );
+          }
+        } catch {
+          // Not JSON, ignore
+        }
+
+        // If we've heard from all devices, no need to wait longer
+        if (received.size >= deviceTopics.length) {
+          cleanup();
+          resolve(found);
+        }
+      };
+
+      client.on("message", handler);
+      for (const t of deviceTopics) {
+        client.subscribe(t);
+      }
+    });
+
+    if (!updatingDevice) {
+      log.info("No in-progress OTA updates detected");
+      return;
+    }
+
+    // Phase 2: Wait for the in-progress update to complete
+    log.info(`Waiting for "${updatingDevice}" to finish updating...`);
+
+    await new Promise<void>((resolve) => {
+      const deviceTopic = `${this.baseTopic}/${updatingDevice}`;
+
+      const timeout = setTimeout(() => {
+        log.warn(
+          `Timed out waiting for "${updatingDevice}" to finish. Proceeding anyway.`
+        );
+        cleanup();
+        resolve();
+      }, this.config.update_timeout * 1000);
+
+      const cleanup = () => {
+        clearTimeout(timeout);
+        client.unsubscribe(deviceTopic);
         client.unsubscribe(responseTopic);
         client.removeListener("message", handler);
       };
 
-      // If we find one in progress, wait up to the update timeout for it
-      let waitTimeout: ReturnType<typeof setTimeout>;
-
       const handler = (t: string, payload: Buffer) => {
-        // Skip bridge topics
-        if (t.startsWith(`${this.baseTopic}/bridge/`)) return;
-
-        // Check for OTA progress in device messages
-        if (t.startsWith(`${this.baseTopic}/`) && !inProgressDevice) {
+        // Check if the device state changed away from "updating"
+        if (t === deviceTopic) {
           try {
-            const data = JSON.parse(payload.toString()) as Record<string, unknown>;
-            if (typeof data.progress === "number" && data.progress > 0 && data.progress < 100) {
-              const deviceName = t.replace(`${this.baseTopic}/`, "");
-              inProgressDevice = deviceName;
-              clearTimeout(scanTimeout);
-
-              log.warn(
-                `OTA update already in progress for "${deviceName}" (${data.progress}%). Waiting for it to finish...`
-              );
-
-              // Now wait for the update to complete
-              waitTimeout = setTimeout(() => {
-                log.warn(
-                  `Timed out waiting for in-progress update on "${deviceName}". Proceeding anyway.`
-                );
-                cleanup();
-                resolve();
-              }, this.config.update_timeout * 1000);
-            }
-          } catch {
-            // Not JSON, ignore
-          }
-        }
-
-        // If we're waiting for an in-progress update, watch for completion
-        if (inProgressDevice && t === responseTopic) {
-          try {
-            const response = JSON.parse(payload.toString()) as { data?: { id?: string }; status?: string };
-            if (response.data?.id === inProgressDevice) {
+            const data = JSON.parse(payload.toString()) as {
+              update?: { state?: string };
+            };
+            if (data.update?.state && data.update.state !== "updating") {
               log.success(
-                `In-progress update for "${inProgressDevice}" completed. Proceeding with cycle.`
+                `"${updatingDevice}" finished updating (state: ${data.update.state}). Proceeding.`
               );
               cleanup();
               resolve();
             }
           } catch {
-            // Not JSON, ignore
+            // ignore
+          }
+        }
+
+        // Also check the update response topic
+        if (t === responseTopic) {
+          try {
+            const response = JSON.parse(payload.toString()) as {
+              data?: { id?: string };
+            };
+            if (response.data?.id === updatingDevice) {
+              log.success(
+                `"${updatingDevice}" update response received. Proceeding.`
+              );
+              cleanup();
+              resolve();
+            }
+          } catch {
+            // ignore
           }
         }
       };
 
-      client.subscribe(progressWildcard);
-      client.subscribe(responseTopic);
       client.on("message", handler);
+      client.subscribe(deviceTopic);
+      client.subscribe(responseTopic);
     });
   }
 
