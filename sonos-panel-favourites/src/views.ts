@@ -83,10 +83,10 @@ function favouriteRow(
   return `
       <tr>
         <td class="reorder-cell">
-          <form method="post" action="/move/${fav.id}/up">
+          <form method="post" action="move/${fav.id}/up">
             <button type="submit" ${isFirst ? "disabled" : ""} title="Move up">&uarr;</button>
           </form>
-          <form method="post" action="/move/${fav.id}/down">
+          <form method="post" action="move/${fav.id}/down">
             <button type="submit" ${isLast ? "disabled" : ""} title="Move down">&darr;</button>
           </form>
         </td>
@@ -97,7 +97,7 @@ function favouriteRow(
         <td class="actions-cell">
           <details>
             <summary>Edit</summary>
-            <form method="post" action="/edit/${fav.id}" class="edit-form">
+            <form method="post" action="edit/${fav.id}" class="edit-form">
               <label>Name<input type="text" name="name" value="${escapeHtml(fav.name)}" required></label>
               <label>Image URL<input type="text" name="image_url" value="${escapeHtml(fav.image_url)}" required></label>
               <label>Webhook URL<input type="text" name="webhook_url" value="${escapeHtml(fav.webhook_url)}" required></label>
@@ -105,7 +105,7 @@ function favouriteRow(
               <button type="submit">Save</button>
             </form>
           </details>
-          <form method="post" action="/delete/${fav.id}" onsubmit="return confirm('Delete this favourite?');">
+          <form method="post" action="delete/${fav.id}" onsubmit="return confirm('Delete this favourite?');">
             <button type="submit" class="danger">Delete</button>
           </form>
         </td>
@@ -150,7 +150,7 @@ export function renderIndex(
   ${errorBlock}
 
   <div class="sync-section">
-    <form method="post" action="/sync">
+    <form method="post" action="sync">
       <button type="submit">Sync from HA</button>
     </form>
     <p>
@@ -177,7 +177,7 @@ export function renderIndex(
   </table>
 
   <h2>Add a favourite</h2>
-  <form method="post" action="/add" class="add-form">
+  <form method="post" action="add" class="add-form">
     <label>Name
       <input type="text" name="name" placeholder="Dinner Party Playlist" required>
     </label>
@@ -194,7 +194,7 @@ export function renderIndex(
   <h2>Panel JSON feed</h2>
   <p>
     Point the panel firmware at: <code>http://&lt;this-host&gt;:8099/favourites.json</code>
-    (<a href="/favourites.json">view current JSON, unfiltered</a>)
+    (<a href="favourites.json">view current JSON, unfiltered</a>)
   </p>
   <p>
     Got more than one panel? Tag each favourite with a Room above, then point each

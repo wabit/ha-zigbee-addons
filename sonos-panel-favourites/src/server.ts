@@ -52,6 +52,18 @@ export function createServer(config: Config): Express {
   const app = express();
   app.use(express.urlencoded({ extended: false }));
 
+  // Every res.redirect() below deliberately uses "." (or a query string
+  // appended to it) instead of "/" - when this add-on is viewed through
+  // HA's ingress proxy, the browser's real address bar URL has an
+  // /api/hassio_ingress/<token>/ prefix that Supervisor strips before the
+  // request reaches this Express app, so this app never sees it and has no
+  // way to reconstruct it. An absolute "/" redirect (or an absolute-path
+  // <form action="/x">, see views.ts) resolves against the browser's real
+  // URL and lands on HA's own root instead of back in this add-on - a 404,
+  // since HA has no route there. "." is a genuinely relative reference, so
+  // the browser resolves it against whatever URL it's actually looking at
+  // (ingress-prefixed or not), landing back here either way.
+
   app.get("/", async (req, res) => {
     const areas = await fetchAreas();
     const added = Number(req.query.added ?? 0);
@@ -86,7 +98,7 @@ export function createServer(config: Config): Express {
 
     const favourite = await addFavourite(input);
     log.info(`Added favourite "${favourite.name}" (${favourite.id})`);
-    res.redirect("/");
+    res.redirect(".");
   });
 
   app.post("/edit/:id", async (req, res) => {
@@ -106,20 +118,20 @@ export function createServer(config: Config): Express {
       return;
     }
     log.info(`Updated favourite "${input.name}" (${req.params.id})`);
-    res.redirect("/");
+    res.redirect(".");
   });
 
   app.post("/delete/:id", async (req, res) => {
     await deleteFavourite(req.params.id);
     log.info(`Deleted favourite ${req.params.id}`);
-    res.redirect("/");
+    res.redirect(".");
   });
 
   app.post("/sync", async (_req, res) => {
     const discovered = await discoverFromLabel(config.haBaseUrl);
     const { added, updated } = await syncFromDiscovered(discovered);
     log.info(`Sync from HA: ${added} added, ${updated} updated`);
-    res.redirect(`/?added=${added}&updated=${updated}&synced=1`);
+    res.redirect(`.?added=${added}&updated=${updated}&synced=1`);
   });
 
   app.post("/move/:id/:direction", async (req, res) => {
@@ -134,7 +146,7 @@ export function createServer(config: Config): Express {
       res.status(404).type("text").send("Favourite not found");
       return;
     }
-    res.redirect("/");
+    res.redirect(".");
   });
 
   return app;

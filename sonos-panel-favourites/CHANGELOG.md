@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.2.1
+
+- Fix: all form actions/links and POST redirects were absolute paths
+  (`/sync`, `/add`, etc.), which resolve against the browser's real address
+  bar URL - fine when accessed via the direct port, but broken (404) when
+  viewed through HA's ingress proxy, since the browser's URL there has an
+  `/api/hassio_ingress/<token>/` prefix Supervisor strips before this add-on
+  ever sees it. Every action/link/redirect is now a genuinely relative
+  reference instead, resolving correctly under both direct and ingress
+  access.
+
 ## 1.2.0
 
 - New "Sync from HA" button: finds every automation tagged with the HA

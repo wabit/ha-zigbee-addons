@@ -1,6 +1,6 @@
 {
   "name": "sonos-panel-favourites",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Web GUI + JSON feed for managing Sonos panel favourites",
   "type": "module",
   "scripts": {
