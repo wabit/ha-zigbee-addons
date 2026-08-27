@@ -6,10 +6,13 @@ import {
   loadFavourites,
   listRooms,
   moveFavourite,
+  syncFromDiscovered,
   type FavouriteInput,
   type MoveDirection,
 } from "./store.js";
 import { fetchAreas } from "./ha.js";
+import { discoverFromLabel } from "./discover.js";
+import type { Config } from "./config.js";
 import { renderIndex } from "./views.js";
 import * as log from "./logger.js";
 
@@ -45,13 +48,21 @@ function validate(body: Request["body"]): ValidatedInput {
   return { name, image_url, webhook_url, room, errors };
 }
 
-export function createServer(): Express {
+export function createServer(config: Config): Express {
   const app = express();
   app.use(express.urlencoded({ extended: false }));
 
-  app.get("/", async (_req, res) => {
+  app.get("/", async (req, res) => {
     const areas = await fetchAreas();
-    res.type("html").send(renderIndex(loadFavourites(), [], areas, listRooms()));
+    const added = Number(req.query.added ?? 0);
+    const updated = Number(req.query.updated ?? 0);
+    const syncNotice =
+      added > 0 || updated > 0
+        ? `Synced from Home Assistant: ${added} added, ${updated} updated.`
+        : req.query.synced === "1"
+          ? "Synced from Home Assistant: nothing new found."
+          : undefined;
+    res.type("html").send(renderIndex(loadFavourites(), [], areas, listRooms(), syncNotice));
   });
 
   // Public, unauthenticated JSON feed for the panel firmware. ?room=<area_id>
@@ -102,6 +113,13 @@ export function createServer(): Express {
     await deleteFavourite(req.params.id);
     log.info(`Deleted favourite ${req.params.id}`);
     res.redirect("/");
+  });
+
+  app.post("/sync", async (_req, res) => {
+    const discovered = await discoverFromLabel(config.haBaseUrl);
+    const { added, updated } = await syncFromDiscovered(discovered);
+    log.info(`Sync from HA: ${added} added, ${updated} updated`);
+    res.redirect(`/?added=${added}&updated=${updated}&synced=1`);
   });
 
   app.post("/move/:id/:direction", async (req, res) => {

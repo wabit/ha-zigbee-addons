@@ -10,7 +10,7 @@ log.info("=======================\n");
 
 const config = loadConfig(resolve(configPath));
 
-const app = createServer();
+const app = createServer(config);
 
 app.listen(config.port, "0.0.0.0", () => {
   log.info(`Listening on 0.0.0.0:${config.port}`);

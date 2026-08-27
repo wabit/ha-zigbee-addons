@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.2.0
+
+- New "Sync from HA" button: finds every automation tagged with the HA
+  Label `sonos_favourite` that has a webhook trigger, and imports/refreshes
+  it as a favourite (name + webhook URL only - image and room are yours to
+  set and are never overwritten by a re-sync)
+- New `ha_base_url` add-on option (default `http://homeassistant.local:8123`),
+  used to build full webhook URLs for synced favourites
+- Auto-synced favourites are marked with an "auto" badge in the list
+
 ## 1.1.0
 
 - Favourites can now be tagged with a Room, so one add-on can serve multiple

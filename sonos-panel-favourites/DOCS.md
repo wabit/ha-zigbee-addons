@@ -104,14 +104,40 @@ unreachable, the field falls back to free text with autocomplete instead of
 breaking - useful for running this add-on standalone outside a real HA
 Supervisor too (see the main README for local dev instructions).
 
+## Auto-importing favourites from automations
+
+Instead of manually copying webhook URLs into this add-on's form, you can
+tag any Home Assistant automation and let it be discovered automatically:
+
+1. In HA, go to **Settings → Automations & Scenes**, open an automation
+   that has (or add) a **Webhook** trigger
+2. On the automation's settings, add a Label called exactly `sonos_favourite`
+   (create it first under **Settings → Areas, labels & zones → Labels** if
+   it doesn't exist yet)
+3. In this add-on's Web UI, click **Sync from HA**
+
+Every labelled automation with a webhook trigger gets imported as a
+favourite (marked with an <code>auto</code> badge), using the automation's
+name and a full webhook URL built from `ha_base_url` + the trigger's
+webhook ID. Automations with the label but *no* webhook trigger are
+silently skipped - there's nothing sensible to do with them here.
+
+Re-clicking **Sync from HA** later refreshes name/webhook URL for anything
+already imported (e.g. if you renamed the automation) without touching the
+image or room you've since set in the GUI, and picks up any newly-labelled
+automations.
+
 ## Configuration
 
-This add-on has no configurable options. The port is fixed at `8099` via
-the add-on's `ports` mapping, not an add-on option - though Home Assistant
-Supervisor will silently remap it to a different host port if `8099` is
-already taken by something else on your system (check the add-on's **Info**
-tab, under "Network", for the actual port it ended up on if the fixed URLs
-above don't respond).
+| Option | Default | Description |
+|---|---|---|
+| `ha_base_url` | `http://homeassistant.local:8123` | Base URL used to build full webhook URLs for automations imported via **Sync from HA**. Set this to whatever address the panel(s) can actually reach your HA instance at. |
+
+The port is fixed at `8099` via the add-on's `ports` mapping, not an add-on
+option - though Home Assistant Supervisor will silently remap it to a
+different host port if `8099` is already taken by something else on your
+system (check the add-on's **Info** tab, under "Network", for the actual
+port it ended up on if the fixed URLs above don't respond).
 
 ## Data storage
 

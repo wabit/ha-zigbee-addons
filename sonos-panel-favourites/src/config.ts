@@ -2,13 +2,16 @@ import { readFileSync } from "node:fs";
 
 export interface Config {
   port: number;
+  /** Base URL used to build full webhook URLs for auto-discovered
+   * favourites (e.g. "http://homeassistant.local:8123") - the add-on
+   * itself only ever learns a webhook_id from HA's automation config, not
+   * a full externally-reachable URL, so this has to be user-configured. */
+  haBaseUrl: string;
 }
 
 /**
- * Loads the HA add-on options file. This add-on has no meaningful options
- * (the port is fixed via config.yaml's `ports` map, not an option), so this
- * mostly just validates the file is readable and lets `PORT` be overridden
- * for local development.
+ * Loads the HA add-on options file. Lets `PORT`/`HA_BASE_URL` be
+ * overridden via env vars for local development.
  */
 export function loadConfig(path: string): Config {
   let parsed: Record<string, unknown> = {};
@@ -21,6 +24,9 @@ export function loadConfig(path: string): Config {
   }
 
   const port = Number(process.env.PORT ?? parsed.port ?? 8099);
+  const haBaseUrl = String(
+    process.env.HA_BASE_URL ?? parsed.ha_base_url ?? "http://homeassistant.local:8123"
+  ).replace(/\/+$/, "");
 
-  return { port };
+  return { port, haBaseUrl };
 }

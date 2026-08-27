@@ -31,7 +31,11 @@ button:hover { background: #e8e8e8; }
 button.danger { border-color: #c0392b; color: #c0392b; }
 button:disabled { opacity: 0.4; cursor: not-allowed; }
 .errors { background: #fdecea; border: 1px solid #f5c6cb; color: #a11; padding: 0.6rem 1rem; border-radius: 4px; margin-bottom: 1rem; }
+.notice { background: #eaf6ea; border: 1px solid #b7dfb7; color: #1a6b1a; padding: 0.6rem 1rem; border-radius: 4px; margin-bottom: 1rem; }
 .empty { text-align: center; color: #888; }
+.badge { display: inline-block; font-size: 0.7rem; color: #555; background: #eee; border: 1px solid #ccc; border-radius: 3px; padding: 0.05rem 0.35rem; vertical-align: middle; }
+.sync-section { background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 1rem; margin-bottom: 2rem; }
+.sync-section p { margin: 0.3rem 0; font-size: 0.9rem; color: #444; }
 `;
 
 function escapeHtml(value: string): string {
@@ -87,7 +91,7 @@ function favouriteRow(
           </form>
         </td>
         <td><img class="thumb" src="${escapeHtml(fav.image_url)}" alt="" onerror="this.style.visibility='hidden'"></td>
-        <td>${escapeHtml(fav.name)}</td>
+        <td>${escapeHtml(fav.name)}${fav.source_automation_id ? ' <span class="badge" title="Imported from an HA automation tagged \'sonos_favourite\' - name/webhook refresh on re-sync">auto</span>' : ""}</td>
         <td>${roomLabel(fav.room, areas)}</td>
         <td class="url-cell">${escapeHtml(fav.webhook_url)}</td>
         <td class="actions-cell">
@@ -112,7 +116,8 @@ export function renderIndex(
   favourites: Favourite[],
   errors: string[] = [],
   areas: HaArea[] = [],
-  knownRooms: string[] = []
+  knownRooms: string[] = [],
+  syncNotice?: string
 ): string {
   const rows = favourites.length
     ? favourites
@@ -123,6 +128,8 @@ export function renderIndex(
   const errorBlock = errors.length
     ? `<div class="errors"><ul>${errors.map((e) => `<li>${escapeHtml(e)}</li>`).join("")}</ul></div>`
     : "";
+
+  const noticeBlock = syncNotice ? `<div class="notice">${escapeHtml(syncNotice)}</div>` : "";
 
   return `<!doctype html>
 <html lang="en">
@@ -139,7 +146,20 @@ export function renderIndex(
     <code>/favourites.json</code> directly; this page is just for editing the list.
   </p>
 
+  ${noticeBlock}
   ${errorBlock}
+
+  <div class="sync-section">
+    <form method="post" action="/sync">
+      <button type="submit">Sync from HA</button>
+    </form>
+    <p>
+      Finds every automation tagged with the HA Label <code>sonos_favourite</code> that
+      has a webhook trigger, and imports/refreshes them as favourites below (marked
+      <span class="badge">auto</span>). Only name and webhook URL are ever touched by a
+      re-sync - image and room are yours to set and won't be overwritten.
+    </p>
+  </div>
 
   <table>
     <thead>

@@ -8,6 +8,7 @@ import {
 } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import type { DiscoveredFavourite } from "./discover.js";
 
 export interface Favourite {
   id: string;
@@ -21,6 +22,12 @@ export interface Favourite {
    * ?room=<name> filtered feed. */
   room: string;
   order: number;
+  /** Set only for favourites imported via "Sync from HA" (discover.ts) -
+   * the HA automation config id they came from. Lets re-sync find and
+   * refresh them (name/webhook only) instead of creating duplicates, and
+   * lets the GUI show which favourites are HA-managed vs hand-entered.
+   * Absent/undefined for manually-created favourites. */
+  source_automation_id?: string;
 }
 
 export interface FavouriteInput {
@@ -176,5 +183,50 @@ export function moveFavourite(
     b.order = order;
     writeAll(favourites);
     return true;
+  });
+}
+
+export interface SyncResult {
+  added: number;
+  updated: number;
+}
+
+/** Merges discover.ts's findings into the stored list. An already-imported
+ * favourite (matched by source_automation_id) has its name/webhook_url
+ * refreshed in place - image_url/room/order are left exactly as the user
+ * set them in the GUI, never overwritten by a re-sync. A newly-discovered
+ * automation becomes a brand new favourite, pre-filled with its HA area (if
+ * any) as room and an empty image_url (nothing sensible to default that to
+ * - the GUI's own empty-thumbnail styling already handles a blank one). */
+export function syncFromDiscovered(discovered: DiscoveredFavourite[]): Promise<SyncResult> {
+  return withLock(() => {
+    const favourites = loadFavourites();
+    let added = 0;
+    let updated = 0;
+
+    for (const d of discovered) {
+      const existing = favourites.find((f) => f.source_automation_id === d.automation_id);
+      if (existing) {
+        if (existing.name !== d.name || existing.webhook_url !== d.webhook_url) {
+          existing.name = d.name;
+          existing.webhook_url = d.webhook_url;
+          updated++;
+        }
+      } else {
+        favourites.push({
+          id: randomBytes(4).toString("hex"),
+          name: d.name,
+          image_url: "",
+          webhook_url: d.webhook_url,
+          room: d.area_id,
+          order: nextOrder(favourites, d.area_id),
+          source_automation_id: d.automation_id,
+        });
+        added++;
+      }
+    }
+
+    if (added > 0 || updated > 0) writeAll(favourites);
+    return { added, updated };
   });
 }
