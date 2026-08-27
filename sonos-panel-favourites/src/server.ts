@@ -1,4 +1,4 @@
-import express, { type Express, type Request } from "express";
+import express, { type Express, type Request, type Response } from "express";
 import {
   addFavourite,
   deleteFavourite,
@@ -12,9 +12,24 @@ import {
 } from "./store.js";
 import { fetchAreas } from "./ha.js";
 import { discoverFromLabel } from "./discover.js";
+import { UPLOADS_DIR, uploadMiddleware, buildUploadUrl, deleteUploadedFileIfOwned } from "./uploads.js";
 import type { Config } from "./config.js";
 import { renderIndex } from "./views.js";
 import * as log from "./logger.js";
+
+/** Wraps multer's callback-style middleware in a promise so an upload
+ * error (bad file type, too large) is just another catchable failure in
+ * the route handler below, alongside the rest of this file's validation
+ * errors - rather than needing a separate 4-arg Express error-handling
+ * middleware for this one case. */
+function runUpload(req: Request, res: Response): Promise<void> {
+  return new Promise((resolve, reject) => {
+    uploadMiddleware(req, res, (err: unknown) => {
+      if (err) reject(err instanceof Error ? err : new Error(String(err)));
+      else resolve();
+    });
+  });
+}
 
 function looksLikeUrl(value: string): boolean {
   try {
@@ -29,7 +44,7 @@ interface ValidatedInput extends FavouriteInput {
   errors: string[];
 }
 
-function validate(body: Request["body"]): ValidatedInput {
+function validate(body: Request["body"], hasFile: boolean): ValidatedInput {
   const name = String(body?.name ?? "").trim();
   const image_url = String(body?.image_url ?? "").trim();
   const webhook_url = String(body?.webhook_url ?? "").trim();
@@ -37,8 +52,11 @@ function validate(body: Request["body"]): ValidatedInput {
 
   const errors: string[] = [];
   if (!name) errors.push("Name is required.");
-  if (!image_url || !looksLikeUrl(image_url)) {
-    errors.push("Image URL must be a valid http(s) URL.");
+  // An uploaded file (checked separately, before validate() is even called
+  // - see runUpload()) satisfies the image requirement on its own, so the
+  // text field only needs to be a valid URL when no file was uploaded.
+  if (!hasFile && (!image_url || !looksLikeUrl(image_url))) {
+    errors.push("Image URL must be a valid http(s) URL, or upload an image file instead.");
   }
   if (!webhook_url || !looksLikeUrl(webhook_url)) {
     errors.push("Webhook URL must be a valid http(s) URL.");
@@ -85,8 +103,56 @@ export function createServer(config: Config): Express {
     res.json(loadFavourites(room));
   });
 
+  // Uploaded tile images (see uploads.ts). Public/unauthenticated, same
+  // reasoning as /favourites.json - the panel has no way to hold an auth
+  // token, and these images are exactly what it needs to fetch directly.
+  app.use("/uploads", express.static(UPLOADS_DIR));
+
   app.post("/add", async (req, res) => {
-    const { errors, ...input } = validate(req.body);
+    try {
+      await runUpload(req, res);
+    } catch (err) {
+      const areas = await fetchAreas();
+      const message = err instanceof Error ? err.message : "Upload failed.";
+      res
+        .status(400)
+        .type("html")
+        .send(renderIndex(loadFavourites(), [message], areas, listRooms()));
+      return;
+    }
+
+    const { errors, ...input } = validate(req.body, Boolean(req.file));
+    if (errors.length > 0) {
+      const areas = await fetchAreas();
+      res
+        .status(400)
+        .type("html")
+        .send(renderIndex(loadFavourites(), errors, areas, listRooms()));
+      return;
+    }
+    if (req.file) {
+      input.image_url = await buildUploadUrl(config.haBaseUrl, req.file.filename);
+    }
+
+    const favourite = await addFavourite(input);
+    log.info(`Added favourite "${favourite.name}" (${favourite.id})`);
+    res.redirect(".");
+  });
+
+  app.post("/edit/:id", async (req, res) => {
+    try {
+      await runUpload(req, res);
+    } catch (err) {
+      const areas = await fetchAreas();
+      const message = err instanceof Error ? err.message : "Upload failed.";
+      res
+        .status(400)
+        .type("html")
+        .send(renderIndex(loadFavourites(), [message], areas, listRooms()));
+      return;
+    }
+
+    const { errors, ...input } = validate(req.body, Boolean(req.file));
     if (errors.length > 0) {
       const areas = await fetchAreas();
       res
@@ -96,20 +162,14 @@ export function createServer(config: Config): Express {
       return;
     }
 
-    const favourite = await addFavourite(input);
-    log.info(`Added favourite "${favourite.name}" (${favourite.id})`);
-    res.redirect(".");
-  });
-
-  app.post("/edit/:id", async (req, res) => {
-    const { errors, ...input } = validate(req.body);
-    if (errors.length > 0) {
-      const areas = await fetchAreas();
-      res
-        .status(400)
-        .type("html")
-        .send(renderIndex(loadFavourites(), errors, areas, listRooms()));
-      return;
+    const previous = loadFavourites().find((f) => f.id === req.params.id);
+    if (req.file) {
+      input.image_url = await buildUploadUrl(config.haBaseUrl, req.file.filename);
+      // Replacing an uploaded image with a new one - clean up the old file
+      // rather than leaving it orphaned on the persistent volume forever.
+      if (previous && previous.image_url && previous.image_url !== input.image_url) {
+        deleteUploadedFileIfOwned(previous.image_url);
+      }
     }
 
     const found = await editFavourite(req.params.id, input);
@@ -122,6 +182,8 @@ export function createServer(config: Config): Express {
   });
 
   app.post("/delete/:id", async (req, res) => {
+    const existing = loadFavourites().find((f) => f.id === req.params.id);
+    if (existing) deleteUploadedFileIfOwned(existing.image_url);
     await deleteFavourite(req.params.id);
     log.info(`Deleted favourite ${req.params.id}`);
     res.redirect(".");

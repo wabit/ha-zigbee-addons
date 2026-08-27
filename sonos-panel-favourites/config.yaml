@@ -1,5 +1,5 @@
 name: "Sonos Panel Favourites"
-version: "1.2.1"
+version: "1.3.0"
 slug: "sonos_panel_favourites"
 description: "Manage a list of Sonos playlist/radio favourites and serve them as JSON for an ESP32 touch panel."
 url: "https://github.com/wabit/wabits-ha-addons"

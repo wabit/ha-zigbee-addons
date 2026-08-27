@@ -97,9 +97,10 @@ function favouriteRow(
         <td class="actions-cell">
           <details>
             <summary>Edit</summary>
-            <form method="post" action="edit/${fav.id}" class="edit-form">
+            <form method="post" action="edit/${fav.id}" class="edit-form" enctype="multipart/form-data">
               <label>Name<input type="text" name="name" value="${escapeHtml(fav.name)}" required></label>
-              <label>Image URL<input type="text" name="image_url" value="${escapeHtml(fav.image_url)}" required></label>
+              <label>Image URL<input type="text" name="image_url" value="${escapeHtml(fav.image_url)}"></label>
+              <label>...or upload a new image<input type="file" name="image_file" accept="image/png,image/jpeg,image/gif,image/webp"></label>
               <label>Webhook URL<input type="text" name="webhook_url" value="${escapeHtml(fav.webhook_url)}" required></label>
               <label>Room${roomFieldHtml(fav.room, areas, knownRooms)}</label>
               <button type="submit">Save</button>
@@ -177,12 +178,15 @@ export function renderIndex(
   </table>
 
   <h2>Add a favourite</h2>
-  <form method="post" action="add" class="add-form">
+  <form method="post" action="add" class="add-form" enctype="multipart/form-data">
     <label>Name
       <input type="text" name="name" placeholder="Dinner Party Playlist" required>
     </label>
     <label>Image URL
-      <input type="text" name="image_url" placeholder="http://homeassistant.local:8123/local/dinner.png" required>
+      <input type="text" name="image_url" placeholder="http://homeassistant.local:8123/local/dinner.png">
+    </label>
+    <label>...or upload an image
+      <input type="file" name="image_file" accept="image/png,image/jpeg,image/gif,image/webp">
     </label>
     <label>Webhook URL
       <input type="text" name="webhook_url" placeholder="http://homeassistant.local:8123/api/webhook/abc123" required>

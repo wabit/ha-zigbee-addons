@@ -8,7 +8,10 @@ Each favourite has:
 
 - a **name** (e.g. "Dinner Party Playlist")
 - an **image URL** — album art/icon the panel tile displays. The panel
-  fetches this image itself; this add-on just stores the URL.
+  fetches this image itself; this add-on just stores the URL. You can paste
+  an existing URL, or upload an image file directly from the Add/Edit form
+  instead - it's stored on this add-on's own persistent storage and served
+  back out as a URL automatically (jpg/png/gif/webp, 8MB max).
 - a **webhook URL** — a Home Assistant webhook (e.g.
   `http://homeassistant.local:8123/api/webhook/abc123`) that the panel calls
   when the tile is tapped. The add-on doesn't know or care what the

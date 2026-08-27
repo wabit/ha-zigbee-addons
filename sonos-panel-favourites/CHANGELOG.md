@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.3.0
+
+- Add/Edit forms now support uploading an image file directly instead of
+  pasting a URL - stored on the add-on's persistent volume and served at
+  `/uploads/<file>`. Replacing or deleting a favourite's uploaded image
+  cleans up the old file automatically.
+- The uploaded image's URL is built from your configured `ha_base_url`'s
+  hostname plus this add-on's *actual* external port (looked up from
+  Supervisor, not just the configured `8099` - correctly accounts for
+  Supervisor remapping it to a different port if `8099` was already
+  taken). Works correctly whether you're using the direct port or HA's
+  ingress proxy to manage favourites - unlike deriving it from the
+  request itself, which only works for direct-port access.
+
 ## 1.2.1
 
 - Fix: all form actions/links and POST redirects were absolute paths
