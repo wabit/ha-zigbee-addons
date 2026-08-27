@@ -14,6 +14,12 @@ export interface Favourite {
   name: string;
   image_url: string;
   webhook_url: string;
+  /** Free-text room/panel tag (e.g. "office", "kitchen"). Empty string means
+   * unassigned - only returned by loadFavourites() when NO room filter is
+   * requested, so it won't show up on any panel that filters by room until
+   * tagged. Lets one add-on serve multiple panels, each fetching its own
+   * ?room=<name> filtered feed. */
+  room: string;
   order: number;
 }
 
@@ -21,6 +27,7 @@ export interface FavouriteInput {
   name: string;
   image_url: string;
   webhook_url: string;
+  room: string;
 }
 
 export type MoveDirection = "up" | "down";
@@ -70,14 +77,31 @@ function writeAll(favourites: Favourite[]): void {
   renameSync(tmpPath, DATA_FILE);
 }
 
-function nextOrder(favourites: Favourite[]): number {
-  if (favourites.length === 0) return 0;
-  return Math.max(...favourites.map((f) => f.order)) + 1;
+function nextOrder(favourites: Favourite[], room: string): number {
+  const sameRoom = favourites.filter((f) => f.room === room);
+  if (sameRoom.length === 0) return 0;
+  return Math.max(...sameRoom.map((f) => f.order)) + 1;
 }
 
-/** Returns all favourites, sorted by `order` ascending. */
-export function loadFavourites(): Favourite[] {
-  return readAll().sort((a, b) => a.order - b.order);
+/** Returns favourites sorted by room then `order` ascending. Pass `room` to
+ * filter to exactly that room's favourites (used by the panel's JSON feed);
+ * omit it to get everything, room-unassigned included (used by the admin
+ * GUI, which needs to show/manage the whole list). */
+export function loadFavourites(room?: string): Favourite[] {
+  let favourites = readAll();
+  if (room !== undefined) {
+    favourites = favourites.filter((f) => f.room === room);
+  }
+  return favourites.sort((a, b) => {
+    if (a.room !== b.room) return a.room.localeCompare(b.room);
+    return a.order - b.order;
+  });
+}
+
+/** Distinct room tags currently in use, for the admin GUI's room picker. */
+export function listRooms(): string[] {
+  const rooms = new Set(readAll().map((f) => f.room).filter((r) => r));
+  return Array.from(rooms).sort();
 }
 
 export function addFavourite(input: FavouriteInput): Promise<Favourite> {
@@ -86,7 +110,7 @@ export function addFavourite(input: FavouriteInput): Promise<Favourite> {
     const favourite: Favourite = {
       id: randomBytes(4).toString("hex"),
       ...input,
-      order: nextOrder(favourites),
+      order: nextOrder(favourites, input.room),
     };
     favourites.push(favourite);
     writeAll(favourites);
@@ -103,9 +127,17 @@ export function editFavourite(
     const favourite = favourites.find((f) => f.id === id);
     if (!favourite) return false;
 
+    const roomChanged = favourite.room !== input.room;
     favourite.name = input.name;
     favourite.image_url = input.image_url;
     favourite.webhook_url = input.webhook_url;
+    favourite.room = input.room;
+    if (roomChanged) {
+      favourite.order = nextOrder(
+        favourites.filter((f) => f.id !== id),
+        input.room
+      );
+    }
     writeAll(favourites);
     return true;
   });
@@ -125,14 +157,20 @@ export function moveFavourite(
 ): Promise<boolean> {
   return withLock(() => {
     const favourites = loadFavourites();
-    const index = favourites.findIndex((f) => f.id === id);
-    if (index === -1) return false;
+    const favourite = favourites.find((f) => f.id === id);
+    if (!favourite) return false;
 
+    // Swap within the same room only - `order` is scoped per-room, so
+    // swapping across rooms would produce a meaningless number.
+    const sameRoom = favourites
+      .filter((f) => f.room === favourite.room)
+      .sort((a, b) => a.order - b.order);
+    const index = sameRoom.findIndex((f) => f.id === id);
     const swapIndex = direction === "up" ? index - 1 : index + 1;
-    if (swapIndex < 0 || swapIndex >= favourites.length) return true;
+    if (swapIndex < 0 || swapIndex >= sameRoom.length) return true;
 
-    const a = favourites[index];
-    const b = favourites[swapIndex];
+    const a = sameRoom[index];
+    const b = sameRoom[swapIndex];
     const order = a.order;
     a.order = b.order;
     b.order = order;

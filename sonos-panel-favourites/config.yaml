@@ -1,5 +1,5 @@
 name: "Sonos Panel Favourites"
-version: "1.0.0"
+version: "1.1.0"
 slug: "sonos_panel_favourites"
 description: "Manage a list of Sonos playlist/radio favourites and serve them as JSON for an ESP32 touch panel."
 url: "https://github.com/wabit/wabits-ha-addons"
@@ -25,6 +25,11 @@ ports_description:
 ingress: true
 ingress_port: 8099
 panel_icon: "mdi:playlist-music"
+# Grants a SUPERVISOR_TOKEN so the add-on can fetch HA's real Area registry
+# via the Supervisor-proxied WebSocket API - favourites get tagged with an
+# actual HA area (e.g. "Office") instead of a free-typed room name. Falls
+# back to free text automatically if this is ever unset (see src/ha.ts).
+homeassistant_api: true
 
 options: {}
 

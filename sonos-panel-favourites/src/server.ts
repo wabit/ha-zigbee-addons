@@ -4,10 +4,12 @@ import {
   deleteFavourite,
   editFavourite,
   loadFavourites,
+  listRooms,
   moveFavourite,
   type FavouriteInput,
   type MoveDirection,
 } from "./store.js";
+import { fetchAreas } from "./ha.js";
 import { renderIndex } from "./views.js";
 import * as log from "./logger.js";
 
@@ -28,6 +30,7 @@ function validate(body: Request["body"]): ValidatedInput {
   const name = String(body?.name ?? "").trim();
   const image_url = String(body?.image_url ?? "").trim();
   const webhook_url = String(body?.webhook_url ?? "").trim();
+  const room = String(body?.room ?? "").trim();
 
   const errors: string[] = [];
   if (!name) errors.push("Name is required.");
@@ -37,27 +40,36 @@ function validate(body: Request["body"]): ValidatedInput {
   if (!webhook_url || !looksLikeUrl(webhook_url)) {
     errors.push("Webhook URL must be a valid http(s) URL.");
   }
+  // room is intentionally optional - see store.ts's Favourite.room doc comment.
 
-  return { name, image_url, webhook_url, errors };
+  return { name, image_url, webhook_url, room, errors };
 }
 
 export function createServer(): Express {
   const app = express();
   app.use(express.urlencoded({ extended: false }));
 
-  app.get("/", (_req, res) => {
-    res.type("html").send(renderIndex(loadFavourites()));
+  app.get("/", async (_req, res) => {
+    const areas = await fetchAreas();
+    res.type("html").send(renderIndex(loadFavourites(), [], areas, listRooms()));
   });
 
-  // Public, unauthenticated JSON feed for the panel firmware.
-  app.get("/favourites.json", (_req, res) => {
-    res.json(loadFavourites());
+  // Public, unauthenticated JSON feed for the panel firmware. ?room=<area_id>
+  // filters to that room/area only; omit it to get everything (used by the
+  // admin GUI, and as a reasonable default for a single-panel setup).
+  app.get("/favourites.json", (req, res) => {
+    const room = typeof req.query.room === "string" ? req.query.room : undefined;
+    res.json(loadFavourites(room));
   });
 
   app.post("/add", async (req, res) => {
     const { errors, ...input } = validate(req.body);
     if (errors.length > 0) {
-      res.status(400).type("html").send(renderIndex(loadFavourites(), errors));
+      const areas = await fetchAreas();
+      res
+        .status(400)
+        .type("html")
+        .send(renderIndex(loadFavourites(), errors, areas, listRooms()));
       return;
     }
 
@@ -69,7 +81,11 @@ export function createServer(): Express {
   app.post("/edit/:id", async (req, res) => {
     const { errors, ...input } = validate(req.body);
     if (errors.length > 0) {
-      res.status(400).type("html").send(renderIndex(loadFavourites(), errors));
+      const areas = await fetchAreas();
+      res
+        .status(400)
+        .type("html")
+        .send(renderIndex(loadFavourites(), errors, areas, listRooms()));
       return;
     }
 

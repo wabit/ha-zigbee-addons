@@ -13,7 +13,10 @@ Each favourite has:
   `http://homeassistant.local:8123/api/webhook/abc123`) that the panel calls
   when the tile is tapped. The add-on doesn't know or care what the
   automation behind the webhook does.
-- a display **order** used to sort tiles in the grid
+- an optional **room** — tags the favourite to one of your real Home
+  Assistant Areas (or leave it "Unassigned"). Only matters if you have more
+  than one panel; see "Multiple panels / rooms" below.
+- a display **order** used to sort tiles in the grid, scoped per room
 
 You manage the list through a small web GUI. The add-on serves the current
 list as JSON at a fixed, unauthenticated HTTP endpoint that the panel
@@ -75,13 +78,40 @@ unauthenticated `GET` — no token or header required.
 ```
 
 The array is always returned sorted by `order` ascending. Field names are
-fixed: `id`, `name`, `image_url`, `webhook_url`, `order` — the panel
+fixed: `id`, `name`, `image_url`, `webhook_url`, `room`, `order` — the panel
 firmware is written against this exact shape, so it will not change.
+
+## Multiple panels / rooms
+
+Got more than one panel (e.g. one in the kitchen, one in an office)? Tag
+each favourite with a Room in the web GUI (a dropdown of your real Home
+Assistant Areas), then point each panel at its own filtered feed instead of
+the plain URL above:
+
+```
+http://<your-ha-ip>:8099/favourites.json?room=office
+```
+
+Only favourites tagged with that exact Area are returned. Favourites left
+"Unassigned" never show up on a room-filtered feed — only on the unfiltered
+one. If you only have one panel, you can ignore rooms entirely and just use
+the plain `/favourites.json` URL as before.
+
+The Room field is a real dropdown of your HA Areas whenever the add-on can
+reach Home Assistant's area registry (needs `homeassistant_api: true`,
+already enabled by default in this add-on's `config.yaml`). If that's ever
+unreachable, the field falls back to free text with autocomplete instead of
+breaking - useful for running this add-on standalone outside a real HA
+Supervisor too (see the main README for local dev instructions).
 
 ## Configuration
 
 This add-on has no configurable options. The port is fixed at `8099` via
-the add-on's `ports` mapping, not an add-on option.
+the add-on's `ports` mapping, not an add-on option - though Home Assistant
+Supervisor will silently remap it to a different host port if `8099` is
+already taken by something else on your system (check the add-on's **Info**
+tab, under "Network", for the actual port it ended up on if the fixed URLs
+above don't respond).
 
 ## Data storage
 

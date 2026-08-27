@@ -1,4 +1,5 @@
 import type { Favourite } from "./store.js";
+import type { HaArea } from "./ha.js";
 
 const STYLE = `
 body {
@@ -42,7 +43,39 @@ function escapeHtml(value: string): string {
     .replace(/'/g, "&#39;");
 }
 
-function favouriteRow(fav: Favourite, isFirst: boolean, isLast: boolean): string {
+function roomFieldHtml(current: string, areas: HaArea[], knownRooms: string[]): string {
+  if (areas.length > 0) {
+    const options =
+      `<option value="" ${!current ? "selected" : ""}>Unassigned</option>` +
+      areas
+        .map(
+          (a) =>
+            `<option value="${escapeHtml(a.area_id)}" ${a.area_id === current ? "selected" : ""}>${escapeHtml(a.name)}</option>`
+        )
+        .join("");
+    return `<select name="room">${options}</select>`;
+  }
+  // No live HA area registry available (e.g. running standalone outside a
+  // real HA/Supervisor, or homeassistant_api isn't reachable) - fall back
+  // to free text, suggesting any room tags already in use.
+  const datalist = knownRooms.map((r) => `<option value="${escapeHtml(r)}">`).join("");
+  return `<input type="text" name="room" list="known-rooms" value="${escapeHtml(current)}" placeholder="office">
+      <datalist id="known-rooms">${datalist}</datalist>`;
+}
+
+function roomLabel(room: string, areas: HaArea[]): string {
+  if (!room) return "—"; // em dash for "unassigned"
+  const area = areas.find((a) => a.area_id === room);
+  return escapeHtml(area ? area.name : room);
+}
+
+function favouriteRow(
+  fav: Favourite,
+  isFirst: boolean,
+  isLast: boolean,
+  areas: HaArea[],
+  knownRooms: string[]
+): string {
   return `
       <tr>
         <td class="reorder-cell">
@@ -55,6 +88,7 @@ function favouriteRow(fav: Favourite, isFirst: boolean, isLast: boolean): string
         </td>
         <td><img class="thumb" src="${escapeHtml(fav.image_url)}" alt="" onerror="this.style.visibility='hidden'"></td>
         <td>${escapeHtml(fav.name)}</td>
+        <td>${roomLabel(fav.room, areas)}</td>
         <td class="url-cell">${escapeHtml(fav.webhook_url)}</td>
         <td class="actions-cell">
           <details>
@@ -63,6 +97,7 @@ function favouriteRow(fav: Favourite, isFirst: boolean, isLast: boolean): string
               <label>Name<input type="text" name="name" value="${escapeHtml(fav.name)}" required></label>
               <label>Image URL<input type="text" name="image_url" value="${escapeHtml(fav.image_url)}" required></label>
               <label>Webhook URL<input type="text" name="webhook_url" value="${escapeHtml(fav.webhook_url)}" required></label>
+              <label>Room${roomFieldHtml(fav.room, areas, knownRooms)}</label>
               <button type="submit">Save</button>
             </form>
           </details>
@@ -73,12 +108,17 @@ function favouriteRow(fav: Favourite, isFirst: boolean, isLast: boolean): string
       </tr>`;
 }
 
-export function renderIndex(favourites: Favourite[], errors: string[] = []): string {
+export function renderIndex(
+  favourites: Favourite[],
+  errors: string[] = [],
+  areas: HaArea[] = [],
+  knownRooms: string[] = []
+): string {
   const rows = favourites.length
     ? favourites
-        .map((fav, i) => favouriteRow(fav, i === 0, i === favourites.length - 1))
+        .map((fav, i) => favouriteRow(fav, i === 0, i === favourites.length - 1, areas, knownRooms))
         .join("")
-    : `<tr><td colspan="5" class="empty">No favourites yet. Add one below.</td></tr>`;
+    : `<tr><td colspan="6" class="empty">No favourites yet. Add one below.</td></tr>`;
 
   const errorBlock = errors.length
     ? `<div class="errors"><ul>${errors.map((e) => `<li>${escapeHtml(e)}</li>`).join("")}</ul></div>`
@@ -107,6 +147,7 @@ export function renderIndex(favourites: Favourite[], errors: string[] = []): str
         <th>Order</th>
         <th>Image</th>
         <th>Name</th>
+        <th>Room</th>
         <th>Webhook URL</th>
         <th>Actions</th>
       </tr>
@@ -126,13 +167,22 @@ export function renderIndex(favourites: Favourite[], errors: string[] = []): str
     <label>Webhook URL
       <input type="text" name="webhook_url" placeholder="http://homeassistant.local:8123/api/webhook/abc123" required>
     </label>
+    <label>Room${roomFieldHtml("", areas, knownRooms)}</label>
     <button type="submit">Add favourite</button>
   </form>
 
   <h2>Panel JSON feed</h2>
   <p>
     Point the panel firmware at: <code>http://&lt;this-host&gt;:8099/favourites.json</code>
-    (<a href="/favourites.json">view current JSON</a>)
+    (<a href="/favourites.json">view current JSON, unfiltered</a>)
+  </p>
+  <p>
+    Got more than one panel? Tag each favourite with a Room above, then point each
+    panel at its own filtered feed instead, e.g.
+    <code>http://&lt;this-host&gt;:8099/favourites.json?room=office</code> - only
+    favourites tagged with that room are returned. Untagged ("Unassigned")
+    favourites only show up on the unfiltered feed.
+    ${areas.length === 0 ? '<br><em>Rooms are showing as free text because this add-on couldn\'t reach the Home Assistant area registry (check "homeassistant_api" is enabled and the add-on has restarted since) - once it can, this becomes a dropdown of your real HA areas.</em>' : ""}
   </p>
 </body>
 </html>`;
