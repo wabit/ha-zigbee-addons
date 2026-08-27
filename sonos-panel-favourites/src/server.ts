@@ -70,17 +70,29 @@ export function createServer(config: Config): Express {
   const app = express();
   app.use(express.urlencoded({ extended: false }));
 
-  // Every res.redirect() below deliberately uses "." (or a query string
-  // appended to it) instead of "/" - when this add-on is viewed through
-  // HA's ingress proxy, the browser's real address bar URL has an
+  // Every res.redirect() below deliberately uses a RELATIVE reference
+  // (".", "..", or "../..", optionally with a query string appended)
+  // instead of an absolute "/" - when this add-on is viewed through HA's
+  // ingress proxy, the browser's real address bar URL has an
   // /api/hassio_ingress/<token>/ prefix that Supervisor strips before the
   // request reaches this Express app, so this app never sees it and has no
   // way to reconstruct it. An absolute "/" redirect (or an absolute-path
   // <form action="/x">, see views.ts) resolves against the browser's real
   // URL and lands on HA's own root instead of back in this add-on - a 404,
-  // since HA has no route there. "." is a genuinely relative reference, so
-  // the browser resolves it against whatever URL it's actually looking at
-  // (ingress-prefixed or not), landing back here either way.
+  // since HA has no route there. A relative reference lets the browser
+  // resolve it against whatever URL it's actually looking at (ingress-
+  // prefixed or not), landing back here either way.
+  //
+  // IMPORTANT: "." means "the current URL's directory", which depends on
+  // how many path segments the REQUEST had, not on anything about the
+  // route definition. POST /add (one segment) → "." correctly resolves to
+  // "/". POST /edit/<id> (two segments) → "." resolves to "/edit/" (the
+  // id's own "directory"), NOT "/" - this shipped as a real bug once
+  // already (redirected to "/edit/" with no id, a 404) precisely because
+  // "." was copy-pasted onto a route one directory deeper than /add
+  // without re-deriving it. Each route below uses however many "../" its
+  // own path segment count actually requires - work it out per-route
+  // rather than assuming "." is always correct.
 
   app.get("/", async (req, res) => {
     const areas = await fetchAreas();
@@ -178,7 +190,12 @@ export function createServer(config: Config): Express {
       return;
     }
     log.info(`Updated favourite "${input.name}" (${req.params.id})`);
-    res.redirect(".");
+    // ".." not "." - the request path here is "/edit/<id>", two segments
+    // deep, so "." (current directory) resolves to "/edit/" (the id's own
+    // "directory"), not the site root. See the comment above createServer()
+    // for the ingress reasoning; this route just needs one more "../" to
+    // actually reach root given its extra path segment.
+    res.redirect("..");
   });
 
   app.post("/delete/:id", async (req, res) => {
@@ -186,7 +203,7 @@ export function createServer(config: Config): Express {
     if (existing) deleteUploadedFileIfOwned(existing.image_url);
     await deleteFavourite(req.params.id);
     log.info(`Deleted favourite ${req.params.id}`);
-    res.redirect(".");
+    res.redirect(".."); // same reasoning as /edit/:id above
   });
 
   app.post("/sync", async (_req, res) => {
@@ -208,7 +225,10 @@ export function createServer(config: Config): Express {
       res.status(404).type("text").send("Favourite not found");
       return;
     }
-    res.redirect(".");
+    // "../.." - request path is "/move/<id>/<direction>", three segments
+    // deep, needs two levels up to reach root. Same reasoning as
+    // /edit/:id's comment above.
+    res.redirect("../..");
   });
 
   return app;

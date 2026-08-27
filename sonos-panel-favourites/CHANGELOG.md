@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.3.1
+
+- Fix: "Cannot GET /edit/" (and the same for delete/move) when saving an
+  edit, deleting, or reordering a favourite. The 1.2.1 ingress fix changed
+  every redirect to a relative "." reference, but "." resolves against the
+  *current URL's directory* - correct for single-segment routes like
+  `/add` and `/sync`, but `/edit/<id>`, `/delete/<id>`, and
+  `/move/<id>/<direction>` are one or two directories deeper, so "."
+  landed on `/edit/` (dropping the id) instead of back at the favourites
+  list. Each route now uses however many `../` its own path depth
+  actually requires, verified against both direct-port and ingress URLs.
+
 ## 1.3.0
 
 - Add/Edit forms now support uploading an image file directly instead of
