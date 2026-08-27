@@ -1,0 +1,31 @@
+name: "Sonos Panel Favourites"
+version: "1.0.0"
+slug: "sonos_panel_favourites"
+description: "Manage a list of Sonos playlist/radio favourites and serve them as JSON for an ESP32 touch panel."
+url: "https://github.com/wabit/wabits-ha-addons"
+arch:
+  - amd64
+  - aarch64
+  - armv7
+  - armhf
+  - i386
+init: false
+startup: "application"
+boot: "auto"
+# The direct, fixed host port is the hard requirement: the ESP32 panel
+# fetches http://<ha-host>:8099/favourites.json over plain HTTP with no
+# auth (it has no way to hold an HA auth token), so this endpoint must
+# NOT be ingress-only.
+ports:
+  8099/tcp: 8099
+ports_description:
+  8099/tcp: "Web GUI + public /favourites.json feed for the panel"
+# Ingress is a bonus so the config GUI is also reachable from the HA
+# sidebar. The direct port above remains available regardless.
+ingress: true
+ingress_port: 8099
+panel_icon: "mdi:playlist-music"
+
+options: {}
+
+schema: {}
