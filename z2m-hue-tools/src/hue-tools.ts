@@ -148,25 +148,28 @@ export class HueToolsRunner {
     const options: Record<string, unknown> = {};
     const c = this.config;
 
-    if (c.hue_power_on_behavior) {
+    if (c.apply_power_on_behavior && c.hue_power_on_behavior) {
       options.hue_power_on_behavior = c.hue_power_on_behavior;
     }
 
-    if (c.hue_power_on_brightness) {
+    if (c.apply_power_on_brightness && c.hue_power_on_brightness) {
       options.hue_power_on_brightness =
         c.hue_power_on_brightness === "previous"
           ? "previous"
           : Number(c.hue_power_on_brightness);
     }
 
-    if (c.hue_power_on_color_temperature) {
+    if (
+      c.apply_power_on_color_temperature &&
+      c.hue_power_on_color_temperature
+    ) {
       options.hue_power_on_color_temperature =
         c.hue_power_on_color_temperature === "previous"
           ? "previous"
           : Number(c.hue_power_on_color_temperature);
     }
 
-    if (c.hue_power_on_color) {
+    if (c.apply_power_on_color && c.hue_power_on_color) {
       options.hue_power_on_color = c.hue_power_on_color;
     }
 

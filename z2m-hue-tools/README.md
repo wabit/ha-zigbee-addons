@@ -27,11 +27,20 @@ On each run:
 | --- | --- |
 | `mqtt_host` / `mqtt_port` / `mqtt_username` / `mqtt_password` | MQTT broker connection, defaults to the Mosquitto add-on |
 | `zigbee2mqtt_topic` | Base MQTT topic Zigbee2MQTT publishes on |
+| `apply_power_on_behavior` | Whether to apply `hue_power_on_behavior` at all |
 | `hue_power_on_behavior` | `default`, `on`, `off`, `toggle`, or `previous` |
+| `apply_power_on_brightness` | Whether to apply `hue_power_on_brightness` at all |
 | `hue_power_on_brightness` | `previous` or a value 1-254 |
+| `apply_power_on_color_temperature` | Whether to apply `hue_power_on_color_temperature` at all |
 | `hue_power_on_color_temperature` | `previous` or a mireds value (e.g. 153-500) |
-| `hue_power_on_color` | Hex color (e.g. `#ffffff`), leave blank to skip |
+| `apply_power_on_color` | Whether to apply `hue_power_on_color` at all |
+| `hue_power_on_color` | Hex color (e.g. `#ffffff`) |
 | `apply_to_groups` | Also apply the same options to groups containing Hue devices |
+
+Each `hue_power_on_*` setting only gets sent to your devices/groups if its
+matching `apply_power_on_*` toggle is enabled — turn on only the ones you
+actually want to change. If none are enabled, the add-on logs a warning and
+does nothing.
 | `devices` | Restrict to specific friendly names; empty = all Hue devices |
 | `check_interval_hours` | How often to re-apply (picks up newly added devices/groups) |
 | `enable_notifications` | Send a Home Assistant persistent notification with the results |

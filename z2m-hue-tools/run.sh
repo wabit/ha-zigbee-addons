@@ -28,9 +28,13 @@ const config = {
     password: opts.mqtt_password || ''
   },
   zigbee2mqtt_topic: opts.zigbee2mqtt_topic || 'zigbee2mqtt',
+  apply_power_on_behavior: opts.apply_power_on_behavior === true,
   hue_power_on_behavior: opts.hue_power_on_behavior || 'previous',
+  apply_power_on_brightness: opts.apply_power_on_brightness === true,
   hue_power_on_brightness: opts.hue_power_on_brightness || 'previous',
+  apply_power_on_color_temperature: opts.apply_power_on_color_temperature === true,
   hue_power_on_color_temperature: opts.hue_power_on_color_temperature || 'previous',
+  apply_power_on_color: opts.apply_power_on_color === true,
   hue_power_on_color: opts.hue_power_on_color || '',
   apply_to_groups: opts.apply_to_groups !== false,
   devices: opts.devices || [],
@@ -43,10 +47,10 @@ require('fs').writeFileSync('${CONFIG_PATH}', JSON.stringify(config, null, 2));
 console.log('[INFO] Configuration loaded:');
 console.log('[INFO]   MQTT broker: ' + config.mqtt.host + ':' + config.mqtt.port);
 console.log('[INFO]   Z2M topic: ' + config.zigbee2mqtt_topic);
-console.log('[INFO]   hue_power_on_behavior: ' + config.hue_power_on_behavior);
-console.log('[INFO]   hue_power_on_brightness: ' + config.hue_power_on_brightness);
-console.log('[INFO]   hue_power_on_color_temperature: ' + config.hue_power_on_color_temperature);
-console.log('[INFO]   hue_power_on_color: ' + (config.hue_power_on_color || '(unset)'));
+console.log('[INFO]   hue_power_on_behavior: ' + (config.apply_power_on_behavior ? config.hue_power_on_behavior : '(not applied)'));
+console.log('[INFO]   hue_power_on_brightness: ' + (config.apply_power_on_brightness ? config.hue_power_on_brightness : '(not applied)'));
+console.log('[INFO]   hue_power_on_color_temperature: ' + (config.apply_power_on_color_temperature ? config.hue_power_on_color_temperature : '(not applied)'));
+console.log('[INFO]   hue_power_on_color: ' + (config.apply_power_on_color ? (config.hue_power_on_color || '(unset)') : '(not applied)'));
 console.log('[INFO]   Apply to groups: ' + (config.apply_to_groups ? 'yes' : 'no'));
 console.log('[INFO]   Check interval: ' + config.check_interval_hours + 'h');
 console.log('[INFO]   Notifications: ' + (config.enable_notifications ? 'enabled' : 'disabled'));
