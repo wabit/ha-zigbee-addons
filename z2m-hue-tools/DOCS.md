@@ -9,8 +9,9 @@ Zigbee2MQTT, and to any groups that contain them.
 1. Add this repository to your Home Assistant add-on store if you haven't
    already: `https://github.com/wabit/wabits-ha-addons`
 2. Install **Z2M Hue Tools**.
-3. Turn on `apply_hue_native_control` and/or the `apply_power_on_*` toggles
-   for whichever settings you want to push, and set their values.
+3. Set `hue_native_control` and/or the `hue_power_on_*` fields to whichever
+   values you want to push — each one is left at a "do nothing" default
+   (`unchanged` or blank) until you set it.
 4. Start the add-on.
 
 ## Notes

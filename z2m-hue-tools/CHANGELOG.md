@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.2.0
+
+- Simplify configuration: drop the paired `apply_*` boolean toggles.
+  `hue_native_control` and `hue_power_on_behavior` are now single selects
+  with an `unchanged` "do nothing" default; the brightness/color
+  temperature/color fields already used blank to mean "do nothing" and are
+  unchanged. Halves the number of options fields with no behavior change.
+
 ## 1.1.0
 
 - Add `hue_native_control` support (`apply_hue_native_control` /
