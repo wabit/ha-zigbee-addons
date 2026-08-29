@@ -1,0 +1,22 @@
+{
+  "name": "z2m-hue-tools",
+  "version": "1.0.0",
+  "description": "Applies Hue-native power-on-behavior settings to Zigbee2MQTT devices and groups",
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "build": "tsc",
+    "start:built": "node dist/index.js"
+  },
+  "dependencies": {
+    "mqtt": "^5.10.0",
+    "ws": "^8.20.0",
+    "yaml": "^2.6.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/ws": "^8.18.1",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0"
+  }
+}

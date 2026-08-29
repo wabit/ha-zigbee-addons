@@ -16,6 +16,10 @@ Finds and removes Home Assistant entities that haven't updated in a configurable
 
 Web GUI for managing Sonos playlist/radio favourites, served as unauthenticated JSON at `http://<your-ha-ip>:8099/favourites.json` for a custom ESP32 touch panel to consume directly.
 
+### [Z2M Hue Tools](./z2m-hue-tools)
+
+Applies Hue-native power-on-behavior settings (`hue_power_on_behavior`, brightness, color temperature, color) to Signify/Philips Hue devices in Zigbee2MQTT, and to any groups containing them, on a configurable schedule.
+
 ## Installation
 
 1. In Home Assistant, go to **Settings → Add-ons → Add-on Store**
@@ -23,4 +27,4 @@ Web GUI for managing Sonos playlist/radio favourites, served as unauthenticated 
 3. Paste: `https://github.com/wabit/wabits-ha-addons`
 4. Click **Add**
 
-All three add-ons will appear in the store under this repository.
+All add-ons will appear in the store under this repository.
