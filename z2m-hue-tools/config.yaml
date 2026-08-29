@@ -1,7 +1,7 @@
 name: "Z2M Hue Tools"
-version: "1.0.0"
+version: "1.1.0"
 slug: "z2m_hue_tools"
-description: "Applies Hue-native power-on-behavior settings to Signify/Philips Hue lights and their groups in Zigbee2MQTT."
+description: "Applies hue_native_control and Hue power-on-behavior settings to Signify/Philips Hue lights and their groups in Zigbee2MQTT."
 url: "https://github.com/wabit/wabits-ha-addons"
 arch:
   - amd64
@@ -22,6 +22,8 @@ options:
   mqtt_username: ""
   mqtt_password: ""
   zigbee2mqtt_topic: "zigbee2mqtt"
+  apply_hue_native_control: false
+  hue_native_control: true
   apply_power_on_behavior: true
   hue_power_on_behavior: "previous"
   apply_power_on_brightness: false
@@ -43,6 +45,8 @@ schema:
   mqtt_username: str?
   mqtt_password: password?
   zigbee2mqtt_topic: str
+  apply_hue_native_control: bool
+  hue_native_control: bool
   apply_power_on_behavior: bool
   hue_power_on_behavior: list(default|on|off|toggle|previous)
   apply_power_on_brightness: bool

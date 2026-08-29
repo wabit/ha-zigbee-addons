@@ -28,6 +28,8 @@ const config = {
     password: opts.mqtt_password || ''
   },
   zigbee2mqtt_topic: opts.zigbee2mqtt_topic || 'zigbee2mqtt',
+  apply_hue_native_control: opts.apply_hue_native_control === true,
+  hue_native_control: opts.hue_native_control !== false,
   apply_power_on_behavior: opts.apply_power_on_behavior === true,
   hue_power_on_behavior: opts.hue_power_on_behavior || 'previous',
   apply_power_on_brightness: opts.apply_power_on_brightness === true,
@@ -47,6 +49,7 @@ require('fs').writeFileSync('${CONFIG_PATH}', JSON.stringify(config, null, 2));
 console.log('[INFO] Configuration loaded:');
 console.log('[INFO]   MQTT broker: ' + config.mqtt.host + ':' + config.mqtt.port);
 console.log('[INFO]   Z2M topic: ' + config.zigbee2mqtt_topic);
+console.log('[INFO]   hue_native_control: ' + (config.apply_hue_native_control ? config.hue_native_control : '(not applied)'));
 console.log('[INFO]   hue_power_on_behavior: ' + (config.apply_power_on_behavior ? config.hue_power_on_behavior : '(not applied)'));
 console.log('[INFO]   hue_power_on_brightness: ' + (config.apply_power_on_brightness ? config.hue_power_on_brightness : '(not applied)'));
 console.log('[INFO]   hue_power_on_color_temperature: ' + (config.apply_power_on_color_temperature ? config.hue_power_on_color_temperature : '(not applied)'));

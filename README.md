@@ -18,7 +18,7 @@ Web GUI for managing Sonos playlist/radio favourites, served as unauthenticated 
 
 ### [Z2M Hue Tools](./z2m-hue-tools)
 
-Applies Hue-native power-on-behavior settings (`hue_power_on_behavior`, brightness, color temperature, color) to Signify/Philips Hue devices in Zigbee2MQTT, and to any groups containing them, on a configurable schedule.
+Applies Hue/Philips-specific device options — `hue_native_control` and Hue power-on-behavior (`hue_power_on_behavior`, brightness, color temperature, color) — to Signify/Philips Hue devices in Zigbee2MQTT, and to any groups containing them, on a configurable schedule.
 
 ## Installation
 

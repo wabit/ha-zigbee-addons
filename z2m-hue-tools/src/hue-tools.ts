@@ -148,6 +148,10 @@ export class HueToolsRunner {
     const options: Record<string, unknown> = {};
     const c = this.config;
 
+    if (c.apply_hue_native_control) {
+      options.hue_native_control = c.hue_native_control;
+    }
+
     if (c.apply_power_on_behavior && c.hue_power_on_behavior) {
       options.hue_power_on_behavior = c.hue_power_on_behavior;
     }

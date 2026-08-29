@@ -9,6 +9,8 @@ export interface Config {
     password: string;
   };
   zigbee2mqtt_topic: string;
+  apply_hue_native_control: boolean;
+  hue_native_control: boolean;
   apply_power_on_behavior: boolean;
   hue_power_on_behavior: string;
   apply_power_on_brightness: boolean;
@@ -46,6 +48,8 @@ export function loadConfig(path: string): Config {
       password: String(mqtt.password ?? ""),
     },
     zigbee2mqtt_topic: String(parsed.zigbee2mqtt_topic ?? "zigbee2mqtt"),
+    apply_hue_native_control: parsed.apply_hue_native_control === true,
+    hue_native_control: parsed.hue_native_control !== false,
     apply_power_on_behavior: parsed.apply_power_on_behavior === true,
     hue_power_on_behavior: String(parsed.hue_power_on_behavior ?? "previous"),
     apply_power_on_brightness: parsed.apply_power_on_brightness === true,
