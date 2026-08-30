@@ -1,5 +1,5 @@
 name: "Z2M Hue Tools"
-version: "1.2.0"
+version: "1.3.0"
 slug: "z2m_hue_tools"
 description: "Applies hue_native_control and Hue power-on-behavior settings to Signify/Philips Hue lights and their groups in Zigbee2MQTT."
 url: "https://github.com/wabit/wabits-ha-addons"
@@ -29,7 +29,7 @@ options:
   hue_power_on_color: ""
   apply_to_groups: true
   devices: []
-  check_interval_hours: 24
+  run_interval: "weekly"
   enable_notifications: true
   dry_run: false
   debug: false
@@ -48,7 +48,7 @@ schema:
   apply_to_groups: bool
   devices:
     - str
-  check_interval_hours: int
+  run_interval: list(6h|12h|daily|weekly|monthly)
   enable_notifications: bool
   dry_run: bool
   debug: bool

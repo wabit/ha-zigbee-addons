@@ -1,6 +1,18 @@
 import { readFileSync } from "node:fs";
 import { parse as parseYaml } from "yaml";
 
+const RUN_INTERVAL_HOURS: Record<string, number> = {
+  "6h": 6,
+  "12h": 12,
+  daily: 24,
+  weekly: 24 * 7,
+  monthly: 24 * 30,
+};
+
+export function runIntervalToHours(runInterval: string): number {
+  return RUN_INTERVAL_HOURS[runInterval] ?? RUN_INTERVAL_HOURS.weekly;
+}
+
 export interface Config {
   mqtt: {
     host: string;
@@ -16,7 +28,7 @@ export interface Config {
   hue_power_on_color: string;
   apply_to_groups: boolean;
   devices: string[];
-  check_interval_hours: number;
+  run_interval: string;
   enable_notifications: boolean;
   dry_run: boolean;
   debug: boolean;
@@ -54,7 +66,7 @@ export function loadConfig(path: string): Config {
     hue_power_on_color: String(parsed.hue_power_on_color ?? ""),
     apply_to_groups: parsed.apply_to_groups !== false,
     devices: Array.isArray(parsed.devices) ? parsed.devices.map(String) : [],
-    check_interval_hours: Number(parsed.check_interval_hours ?? 24),
+    run_interval: String(parsed.run_interval ?? "weekly"),
     enable_notifications: parsed.enable_notifications !== false,
     dry_run: parsed.dry_run === true,
     debug: parsed.debug === true,

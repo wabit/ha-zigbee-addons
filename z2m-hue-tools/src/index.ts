@@ -1,5 +1,5 @@
 import { resolve } from "node:path";
-import { loadConfig } from "./config.js";
+import { loadConfig, runIntervalToHours } from "./config.js";
 import { HueToolsRunner } from "./hue-tools.js";
 import { notifyHA } from "./notify.js";
 import * as log from "./logger.js";
@@ -10,13 +10,14 @@ log.info("Z2M Hue Tools");
 log.info("=============\n");
 
 const config = loadConfig(resolve(configPath));
+const intervalHours = runIntervalToHours(config.run_interval);
 
 log.setDebug(config.debug);
 
 log.info(`MQTT broker: ${config.mqtt.host}:${config.mqtt.port}`);
 log.info(`Z2M topic: ${config.zigbee2mqtt_topic}`);
 log.info(`Apply to groups: ${config.apply_to_groups ? "yes" : "no"}`);
-log.info(`Check interval: ${config.check_interval_hours}h`);
+log.info(`Run interval: ${config.run_interval} (${intervalHours}h)`);
 log.info(`Notifications: ${config.enable_notifications ? "enabled" : "disabled"}`);
 log.info(`Dry run: ${config.dry_run ? "enabled" : "disabled"}`);
 
@@ -84,11 +85,9 @@ async function runCycle(): Promise<void> {
 while (true) {
   await runCycle();
 
-  const nextRun = new Date(
-    Date.now() + config.check_interval_hours * 60 * 60 * 1000
-  );
+  const nextRun = new Date(Date.now() + intervalHours * 60 * 60 * 1000);
   log.info(
-    `Next run in ${config.check_interval_hours}h (at ${nextRun.toISOString()})`
+    `Next run in ${intervalHours}h (at ${nextRun.toISOString()})`
   );
-  await sleep(config.check_interval_hours * 60 * 60 * 1000);
+  await sleep(intervalHours * 60 * 60 * 1000);
 }

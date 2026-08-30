@@ -35,7 +35,7 @@ const config = {
   hue_power_on_color: opts.hue_power_on_color || '',
   apply_to_groups: opts.apply_to_groups !== false,
   devices: opts.devices || [],
-  check_interval_hours: opts.check_interval_hours || 24,
+  run_interval: opts.run_interval || 'weekly',
   enable_notifications: opts.enable_notifications !== false,
   dry_run: opts.dry_run === true,
   debug: opts.debug === true
@@ -50,7 +50,7 @@ console.log('[INFO]   hue_power_on_brightness: ' + (config.hue_power_on_brightne
 console.log('[INFO]   hue_power_on_color_temperature: ' + (config.hue_power_on_color_temperature || '(not applied)'));
 console.log('[INFO]   hue_power_on_color: ' + (config.hue_power_on_color || '(not applied)'));
 console.log('[INFO]   Apply to groups: ' + (config.apply_to_groups ? 'yes' : 'no'));
-console.log('[INFO]   Check interval: ' + config.check_interval_hours + 'h');
+console.log('[INFO]   Run interval: ' + config.run_interval);
 console.log('[INFO]   Notifications: ' + (config.enable_notifications ? 'enabled' : 'disabled'));
 console.log('[INFO]   Dry run: ' + (config.dry_run ? 'enabled' : 'disabled'));
 console.log('[INFO]   Debug: ' + (config.debug ? 'enabled' : 'disabled'));

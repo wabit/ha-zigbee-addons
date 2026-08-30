@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.3.0
+
+- Replace `check_interval_hours` (free-typed number) with `run_interval`, a
+  dropdown of `6h`, `12h`, `daily`, `weekly`, `monthly`. Default changed
+  from daily to weekly, since Hue devices are added rarely.
+
 ## 1.2.0
 
 - Simplify configuration: drop the paired `apply_*` boolean toggles.

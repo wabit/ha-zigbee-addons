@@ -20,7 +20,7 @@ On each run:
    (`zigbee2mqtt/bridge/groups`), finds any group with at least one Hue
    member, and applies the same options to the group via
    `zigbee2mqtt/bridge/request/group/options`.
-5. Repeats on a schedule (`check_interval_hours`) so newly paired Hue
+5. Repeats on a schedule (`run_interval`) so newly paired Hue
    devices/groups pick up the settings automatically.
 
 ## Configuration
@@ -36,7 +36,7 @@ On each run:
 | `hue_power_on_color` | Leave blank to skip, or a hex color (e.g. `#ffffff`) |
 | `apply_to_groups` | Also apply the same options to groups containing Hue devices |
 | `devices` | Restrict to specific friendly names; empty = all Hue devices |
-| `check_interval_hours` | How often to re-apply (picks up newly added devices/groups) |
+| `run_interval` | How often to re-apply: `6h`, `12h`, `daily`, `weekly` (default), or `monthly` — picks up newly added devices/groups |
 | `enable_notifications` | Send a Home Assistant persistent notification with the results |
 | `dry_run` | Log what would be applied without publishing changes |
 | `debug` | Verbose logging |
