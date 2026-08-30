@@ -29,7 +29,18 @@ if (config.devices.length > 0) {
 
 console.log();
 
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+// setTimeout silently clamps delays over ~24.8 days (2^31-1 ms) down to 1ms,
+// which made the "monthly" interval fire almost immediately instead of
+// waiting. Chunk long sleeps into steps under that limit.
+const MAX_TIMEOUT_MS = 2_147_483_647;
+
+async function sleep(ms: number): Promise<void> {
+  while (ms > MAX_TIMEOUT_MS) {
+    await new Promise((r) => setTimeout(r, MAX_TIMEOUT_MS));
+    ms -= MAX_TIMEOUT_MS;
+  }
+  await new Promise((r) => setTimeout(r, ms));
+}
 
 async function runCycle(): Promise<void> {
   log.info("Starting apply cycle...");

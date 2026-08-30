@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.3.1
+
+- Fix `run_interval: monthly` (and any interval over ~24.8 days) causing
+  the add-on to loop constantly instead of waiting. Node's `setTimeout`
+  silently clamps delays over `2^31-1` ms down to 1ms; `monthly` (720h =
+  2.592 billion ms) hit that clamp. `sleep()` now chunks long delays into
+  steps under the limit.
+
 ## 1.3.0
 
 - Replace `check_interval_hours` (free-typed number) with `run_interval`, a
